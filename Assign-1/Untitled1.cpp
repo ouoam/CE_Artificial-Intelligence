@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cctype>
 #include <queue>
+#include <vector>
 
 /// 0 -> L
 /// 1 -> S
@@ -21,7 +22,6 @@ char typeNum2Char(int t) {
     return a[t];
 }
 
-
 char table[8][8] = {
     {' ', 'l', ' ', ' ', ' ', ' ', ' ', ' '},
     {' ', ' ', 'l', 's', ' ', ' ', ' ', ' '},
@@ -33,44 +33,81 @@ char table[8][8] = {
     {' ', ' ', ' ', 'L', ' ', ' ', ' ', ' '}
 };
 
-int tableL[8][8];
-
 int numEnemies[3];
+
+struct doMap {
+    int tablesCost[8][8];
+    char tables[8][8];
+    char playAllies;
+
+    int iS;
+    int jS;
+
+    struct doMap *baseMap;
+
+    doMap(struct doMap *baseMap, char allies, char oldMap[8][8]) :
+        baseMap(baseMap), playAllies(allies)
+    {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                this->tablesCost[i][j] = 5000;
+                this->tables[i][j] = oldMap[i][j];
+            }
+        }
+    }
+
+    void printTable() {
+        printf("\n\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
+        printf("\n---+---+---+---+---+---+---+---+\n");
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                printf(" %c |", this->tables[i][j]);
+            }
+            printf("\n---+---+---+---+---+---+---+---+\n");
+        }
+    }
+
+    void printTableCost() {
+        printf("\n\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
+        printf("\n---+---+---+---+---+---+---+---+\n");
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (this->tables[i][j] != ' ') {
+                    printf(" %c |", this->tables[i][j]);
+                } else if (this->tablesCost[i][j] != 5000) {
+                    printf("%3d|", this->tablesCost[i][j]);
+                } else {
+                    printf("   |");
+                }
+            }
+            printf("\n---+---+---+---+---+---+---+---+\n");
+        }
+    }
+
+    void printCost() {
+        printf("\n-----+-----+-----+-----+-----+-----+-----+-----+\n");
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                printf(" %4d|", this->tablesCost[i][j]);
+            }
+            printf("\n-----+-----+-----+-----+-----+-----+-----+-----+\n");
+        }
+    }
+};
 
 struct bfsQueue {
     int i;
     int j;
     int deep;
-    char allies;
+    int round;
+
+    struct doMap *playMap;
+
+    bfsQueue() : playMap(nullptr) {
+    }
 };
 
 std::queue<bfsQueue> bfsQ;
-
-void printTable() {
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            printf(" %c |", table[i][j]);
-        }
-        printf("\n---+---+---+---+---+---+---+---+\n");
-    }
-}
-
-void printCost() {
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            printf(" %4d|", tableL[i][j]);
-        }
-        printf("\n-----+-----+-----+-----+-----+-----+-----+-----+\n");
-    }
-}
-
-void resetCost() {
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            tableL[i][j] = 5000;
-        }
-    }
-}
 
 int win(char allies, char enemies) {
     if (allies == 'S') {
@@ -90,7 +127,6 @@ int win(char allies, char enemies) {
         if (enemies == 'a') return 0;
         if (enemies == 'l') return 1;
     }
-
     return 2;
 }
 
@@ -115,13 +151,24 @@ int checkAround(char allies, int i, int j) {
 }
 
 int bfs(int i, int j, char allies) {
-    bfsQueue q;
-    q.i = i;
-    q.j = j;
-    q.deep = 0;
-    q.allies = allies;
+    {
+        bfsQueue q;
+        q.i = i;
+        q.j = j;
+        q.deep = 0;
+        q.round = 1;
+        struct doMap *playMap = new doMap(nullptr, allies, table);
+        playMap->iS = i;
+        playMap->jS = j;
+        q.playMap = playMap;
+        bfsQ.push(q);
+    }
 
-    bfsQ.push(q);
+    int valRound = 1;
+    int valCost = 5000;
+
+    bfsQueue *lastWin = nullptr;
+
     while (!bfsQ.empty())
     {
         bfsQueue f = bfsQ.front();
@@ -129,16 +176,50 @@ int bfs(int i, int j, char allies) {
 
         if (f.i < 0 || 7 < f.i || f.j < 0 || 7 < f.j) continue;
 
-        if (tableL[f.i][f.j] <= f.deep) continue;
-        tableL[f.i][f.j] = f.deep;
+        if (f.playMap->tablesCost[f.i][f.j] <= f.deep) continue;
 
-        printf("In %d,%d -> %d\n", f.i, f.j, f.deep);
+        if (f.round == valRound && f.deep > valCost) continue;
+
+        f.playMap->tablesCost[f.i][f.j] = f.deep;
+
+        // printf("In %d,%d -> %d\t%x\n", f.i, f.j, f.deep, f.playMap);
+
+        bool isFound = false;
 
         auto checkEnemies = [&] (int iEnemies, int jEnemies)
         {
-            if (iEnemies >= 0 && iEnemies <= 8 && jEnemies >= 0 && jEnemies <= 8) {
-                if (win(f.allies, table[iEnemies][jEnemies]) == 1) {
-                    printf("Win %d %d -> %d %d\n", f.i, f.j, iEnemies, jEnemies);
+            if (iEnemies >= 0 && iEnemies <= 8 && jEnemies >= 0 && jEnemies <= 8 && !isFound) {
+                if (win(f.playMap->playAllies, f.playMap->tables[iEnemies][jEnemies]) == 1) {
+                    printf("Win %d %d -> %d %d\tcost : %d\tround : %d\n", f.i, f.j, iEnemies, jEnemies, f.deep, f.round);
+                    isFound = true;
+
+                    struct doMap *nextMap = new doMap(f.playMap, f.playMap->playAllies, f.playMap->tables);
+
+                    nextMap->tables[f.playMap->iS][f.playMap->jS] = ' ';
+                    nextMap->tables[f.i][f.j] = f.playMap->playAllies;
+                    nextMap->tables[iEnemies][jEnemies] = ' ';
+                    nextMap->iS = f.i;
+                    nextMap->jS = f.j;
+
+                    // f.playMap->printTableCost();
+                    // nextMap->printTable();
+
+                    bfsQueue *temp = new bfsQueue();
+
+                    temp->i = f.i;
+                    temp->j = f.j;
+                    temp->deep = f.deep + 1;
+                    temp->round = f.round + 1;
+                    temp->playMap = nextMap;
+                    bfsQ.push(*temp);
+
+                    if (lastWin != nullptr) {
+                        delete lastWin;
+                    }
+                    lastWin = temp;
+
+                    valRound = f.round;
+                    valCost = f.deep;
                 }
             }
         };
@@ -148,27 +229,34 @@ int bfs(int i, int j, char allies) {
         checkEnemies(f.i, f.j - 1);
         checkEnemies(f.i, f.j + 1);
 
-        int re = 0;
-        bfsQueue temp;
+        if (!isFound) {
+            int re = 0;
+            bfsQueue temp;
 
-        auto checkAndAddQ = [&] (int i, int j)
-        {
-            if (i >= 0 && i <= 8 && j >= 0 && j <= 8) {
-                if (checkAround(f.allies, i, j) == 1) {
-                    temp.i = i;
-                    temp.j = j;
-                    temp.deep = f.deep + 1;
-                    temp.allies = f.allies;
-                    bfsQ.push(temp);
+            auto checkAndAddQ = [&] (int i, int j)
+            {
+                if (i >= 0 && i <= 8 && j >= 0 && j <= 8) {
+                    if (checkAround(allies, i, j) == 1) {
+                        temp.i = i;
+                        temp.j = j;
+                        temp.deep = f.deep + 1;
+                        temp.round = f.round;
+                        temp.playMap = f.playMap;
+                        bfsQ.push(temp);
+                    }
                 }
-            }
-        };
+            };
 
-        checkAndAddQ(f.i - 1, f.j);
-        checkAndAddQ(f.i + 1, f.j);
-        checkAndAddQ(f.i, f.j - 1);
-        checkAndAddQ(f.i, f.j + 1);
+            checkAndAddQ(f.i - 1, f.j);
+            checkAndAddQ(f.i + 1, f.j);
+            checkAndAddQ(f.i, f.j - 1);
+            checkAndAddQ(f.i, f.j + 1);
+        }
     }
+
+    lastWin->playMap->printTableCost();
+    lastWin->playMap->baseMap->printTableCost();
+    lastWin->playMap->baseMap->baseMap->printTableCost();
 }
 
 int main() {
@@ -182,17 +270,15 @@ int main() {
     }
 
     while (numEnemies[0] != 0 && numEnemies[1] != 0 && numEnemies[2] != 0) {
-        resetCost();
-        for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8; j++) {
+        bool isRun = false;
+        for (int i = 0; i < 8 && !isRun; i++) {
+            for (int j = 0; j < 8 && !isRun; j++) {
                 if (table[i][j] == 'A') {
                     bfs(i, j, 'A');
-                    printCost();
-                    printTable();
-                    resetCost();
+                    isRun = true;
                 }
             }
         }
-        getch();
+        getchar();
     }
 }
