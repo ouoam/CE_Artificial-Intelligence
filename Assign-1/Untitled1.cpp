@@ -10,13 +10,15 @@
 
 struct doMap;
 struct bfsQueue;
+struct doStore;
 
 /// Prototype function
 
 int typeChar2Num(char t);
 char typeNum2Char(int t);
 int win(char allies, char enemies);
-bfsQueue *bfs(char tables[8][8]);
+doStore *bfs(char tables[8][8]);
+unsigned char *findPath(char inTable[]);
 
 int typeChar2Num(char t) {
     t = tolower(t);
@@ -153,7 +155,17 @@ struct bfsQueue {
     }
 };
 
-bfsQueue *bfs(char tables[8][8]) {
+struct doStore {
+    unsigned char action    : 1; /// 0 -> walk  1 -> kill
+    unsigned char isSet     : 1;
+    unsigned char allies    : 2; /// 0 -> L  1 -> S  2 -> A
+    unsigned char direction : 2; /// 0 -> up  1 -> down  2 -> left  3 -> right
+    unsigned char none      : 2;
+
+    doStore() : action(0), isSet(0), allies(0), direction(0), none(0)  {}
+};
+
+doStore *bfs(char tables[8][8]) {
     int numEnemies[3] = {0, 0, 0};
     std::queue<bfsQueue> bfsQ;
 
@@ -316,42 +328,13 @@ bfsQueue *bfs(char tables[8][8]) {
         }
     }
 
-    return lastWinQ;
-}
-
-struct doStore {
-    unsigned char action    : 1; /// 0 -> walk  1 -> kill
-    unsigned char isSet     : 1;
-    unsigned char allies    : 2; /// 0 -> L  1 -> S  2 -> A
-    unsigned char direction : 2; /// 0 -> up  1 -> down  2 -> left  3 -> right
-    unsigned char none      : 2;
-
-    doStore() : action(0), isSet(0), allies(0), direction(0), none(0)  {}
-};
-
-int main() {
-    char table[8][8] = {
-        {'a', 'l', 's', ' ', ' ', ' ', ' ', ' '},
-        {'a', 'l', 'a', ' ', ' ', ' ', ' ', ' '},
-        {'s', 's', 'l', ' ', ' ', ' ', ' ', ' '},
-        {'a', 'l', 's', ' ', ' ', ' ', ' ', ' '},
-        {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-        {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'S'},
-        {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'A'},
-        {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'L'}
-    };
-
-    bfsQueue *lastWinQ =  bfs(table);
-
     doStore *dstore = nullptr;
-    int outSize = 0;
     /// parse table array to action array
     if (lastWinQ->playMap != nullptr) {
         struct doMap *pMap = lastWinQ->playMap;
         struct doMap *lMap = nullptr;
 
-        outSize = pMap->tablesCost[pMap->iS][pMap->jS];
-        dstore = new doStore[outSize + 1];
+        dstore = new doStore[pMap->tablesCost[pMap->iS][pMap->jS] + 1];
 
         lMap = pMap;
         pMap = pMap->baseMap;
@@ -402,6 +385,42 @@ int main() {
         printf("Some thing bug");
     }
 
+    return dstore;
+}
+
+unsigned char *findPath(char inTable[]) {
+    char table[8][8];
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            table[i][j] = inTable[i*8 + j];
+        }
+    }
+
+    doStore *dstore =  bfs(table);
+
+    int c = 0;
+    while (dstore[c++].isSet != 0);
+
+    unsigned char *out = new unsigned char[c + 1];
+    memcpy(out, dstore, c);
+
+    return out;
+}
+
+int main() {
+    char table[8][8] = {
+        {'a', 'l', 's', ' ', ' ', ' ', ' ', ' '},
+        {'a', 'l', 'a', ' ', ' ', ' ', ' ', ' '},
+        {'s', 's', 'l', ' ', ' ', ' ', ' ', ' '},
+        {'a', 'l', 's', ' ', ' ', ' ', ' ', ' '},
+        {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+        {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'S'},
+        {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'A'},
+        {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'L'}
+    };
+
+    doStore *dstore =  bfs(table);
+
     int posA[3][2];
     doMap Maps = doMap(nullptr, ' ', table);
 
@@ -421,7 +440,7 @@ int main() {
         }
     }
 
-    for (int i = 0; i < outSize; i++) {
+    for (int i = 0; ; i++) {
         if (dstore[i].isSet) {
             unsigned char temp;
             memcpy(&temp, &dstore[i], 1);
@@ -456,6 +475,7 @@ int main() {
             Maps.printTable();
         } else {
             printf("%d -> Not Set\n", i);
+            break;
         }
     }
 }
