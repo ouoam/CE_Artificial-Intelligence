@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cctype>
+#include <cstring>
 #include <queue>
 #include <vector>
 
@@ -7,12 +8,15 @@
 /// 1 -> S
 /// 2 -> A
 
+struct doMap;
+struct bfsQueue;
+
 /// Prototype function
 
 int typeChar2Num(char t);
 char typeNum2Char(int t);
 int win(char allies, char enemies);
-int bfs(char tables[8][8]);
+bfsQueue *bfs(char tables[8][8]);
 
 int typeChar2Num(char t) {
     t = tolower(t);
@@ -138,10 +142,10 @@ struct doMap {
 };
 
 struct bfsQueue {
-    int i;
-    int j;
-    int deep;
-    int round;
+    int i = -1;
+    int j = -1;
+    int deep = -1;
+    int round = -1;
 
     struct doMap *playMap;
 
@@ -149,7 +153,7 @@ struct bfsQueue {
     }
 };
 
-int bfs(char tables[8][8]) {
+bfsQueue *bfs(char tables[8][8]) {
     int numEnemies[3] = {0, 0, 0};
     std::queue<bfsQueue> bfsQ;
 
@@ -312,18 +316,18 @@ int bfs(char tables[8][8]) {
         }
     }
 
-    if (lastWinQ->playMap != nullptr) {
-        struct doMap *pMap = lastWinQ->playMap;
-        while(pMap != nullptr) {
-            printf("\nS(%2d,%2d) E(%2d,%2d) K(%2d,%2d) C %c", pMap->iS, pMap->jS, pMap->iE, pMap->jE, pMap->iK, pMap->jK, pMap->playAllies);
-            pMap->printTableCost();
-            pMap = pMap->baseMap;
-        }
-    } else {
-        printf("Some thing bug");
-    }
-    return 0;
+    return lastWinQ;
 }
+
+struct doStore {
+    unsigned char action    : 1; /// 0 -> walk  1 -> kill
+    unsigned char isSet     : 1;
+    unsigned char allies    : 2; /// 0 -> L  1 -> S  2 -> A
+    unsigned char direction : 2; /// 0 -> up  1 -> down  2 -> left  3 -> right
+    unsigned char none      : 2;
+
+    doStore() : action(0), isSet(0), allies(0), direction(0), none(0)  {}
+};
 
 int main() {
     char table[8][8] = {
@@ -336,5 +340,74 @@ int main() {
         {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'A'},
         {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'L'}
     };
-    bfs(table);
+
+    bfsQueue *lastWinQ =  bfs(table);
+
+    doStore *dstore = nullptr;
+    int outSize = 0;
+    if (lastWinQ->playMap != nullptr) {
+        struct doMap *pMap = lastWinQ->playMap;
+        struct doMap *lMap = nullptr;
+
+        outSize = pMap->tablesCost[pMap->iS][pMap->jS];
+        dstore = new doStore[outSize + 1];
+
+        lMap = pMap;
+        pMap = pMap->baseMap;
+        while(pMap != nullptr) {
+            // printf("S(%2d,%2d) E(%2d,%2d) K(%2d,%2d) C %c\n", pMap->iS, pMap->jS, lMap->iE, lMap->jE, lMap->iK, lMap->jK, pMap->playAllies);
+            // pMap->printTableCost();
+
+            int iE = lMap->iE;
+            int jE = lMap->jE;
+            int cost = pMap->tablesCost[iE][jE];
+            int typeNum = typeChar2Num(pMap->playAllies);
+
+            /// Store kill action
+            dstore[cost].action = 1;
+            dstore[cost].isSet = 1;
+            dstore[cost].allies = typeNum;
+            dstore[cost].direction = (lMap->jE - lMap->jK == 0 ? (lMap->iE - lMap->iK == -1 ? 1 : 0) : (1 << 1) | (lMap->jE - lMap->jK == -1 ? 1 : 0));
+
+            while (iE != pMap->iS || jE != pMap->jS) {
+                auto check = [&] (int i, int j, int direction)
+                {
+                    if (i >= 0 && i < 8 && j >= 0 && j < 8) {
+                        if (pMap->tablesCost[i][j] == cost - 1) {
+                            cost--;
+                            iE = i;
+                            jE = j;
+
+                            /// Store walk action
+                            dstore[cost].action = 0;
+                            dstore[cost].isSet = 1;
+                            dstore[cost].allies = typeNum;
+                            dstore[cost].direction = direction;
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+                if      (check(iE - 1, jE, 1)) continue;
+                else if (check(iE + 1, jE, 0)) continue;
+                else if (check(iE, jE - 1, 3)) continue;
+                else if (check(iE, jE + 1, 2)) continue;
+            }
+
+            lMap = pMap;
+            pMap = pMap->baseMap;
+        }
+
+        for (int i = 0; i < outSize; i++) {
+            if (dstore[i].isSet) {
+                unsigned char temp;
+                memcpy(&temp, &dstore[i], 1);
+                printf("%d -> %u %u %u  %02X\n", i, dstore[i].action, dstore[i].allies, dstore[i].direction, temp);
+            } else {
+                printf("%d -> Not Set\n", i);
+            }
+        }
+    } else {
+        printf("Some thing bug");
+    }
 }
