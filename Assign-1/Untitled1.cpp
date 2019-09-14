@@ -7,6 +7,13 @@
 /// 1 -> S
 /// 2 -> A
 
+/// Prototype function
+
+int typeChar2Num(char t);
+char typeNum2Char(int t);
+int win(char allies, char enemies);
+int bfs(char tables[8][8]);
+
 int typeChar2Num(char t) {
     t = tolower(t);
     switch (t) {
@@ -59,8 +66,8 @@ struct doMap {
 
     struct doMap *baseMap;
 
-    doMap(struct doMap *baseMap, char allies, char oldMap[8][8]) :
-        baseMap(baseMap), playAllies(allies)
+    doMap(struct doMap *baseMapIn, char allies, char oldMap[8][8]) :
+        playAllies(allies), baseMap(baseMapIn)
     {
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
@@ -70,8 +77,8 @@ struct doMap {
         }
     }
 
-    doMap(struct doMap *baseMap, char allies, char *oldMap[8]) :
-        baseMap(baseMap), playAllies(allies)
+    doMap(struct doMap *baseMapIn, char allies, char *oldMap[8]) :
+        playAllies(allies), baseMap(baseMapIn)
     {
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
@@ -315,6 +322,7 @@ int bfs(char tables[8][8]) {
     } else {
         printf("Some thing bug");
     }
+    return 0;
 }
 
 int main() {
