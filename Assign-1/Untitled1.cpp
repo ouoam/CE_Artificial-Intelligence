@@ -93,7 +93,7 @@ struct doMap {
     }
 
     void printTable() {
-        printf("\n\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
+        // printf("\n\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
         printf("\n---+---+---+---+---+---+---+---+\n");
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
@@ -345,6 +345,7 @@ int main() {
 
     doStore *dstore = nullptr;
     int outSize = 0;
+    /// parse table array to action array
     if (lastWinQ->playMap != nullptr) {
         struct doMap *pMap = lastWinQ->playMap;
         struct doMap *lMap = nullptr;
@@ -397,17 +398,64 @@ int main() {
             lMap = pMap;
             pMap = pMap->baseMap;
         }
-
-        for (int i = 0; i < outSize; i++) {
-            if (dstore[i].isSet) {
-                unsigned char temp;
-                memcpy(&temp, &dstore[i], 1);
-                printf("%d -> %u %u %u  %02X\n", i, dstore[i].action, dstore[i].allies, dstore[i].direction, temp);
-            } else {
-                printf("%d -> Not Set\n", i);
-            }
-        }
     } else {
         printf("Some thing bug");
+    }
+
+    int posA[3][2];
+    doMap Maps = doMap(nullptr, ' ', table);
+
+    for (int a = 0; a < 3; a++) {
+        char allies = typeNum2Char(a);
+        allies = toupper(allies);
+
+        bool isRun = false;
+        for (int i = 0; i < 8 && !isRun; i++) {
+            for (int j = 0; j < 8 && !isRun; j++) {
+                if (Maps.tables[i][j] == allies) {
+                    posA[a][0] = i;
+                    posA[a][1] = j;
+                    isRun = true;
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < outSize; i++) {
+        if (dstore[i].isSet) {
+            unsigned char temp;
+            memcpy(&temp, &dstore[i], 1);
+            printf("\n\n%d -> %u %u %u  %02X\n", i, dstore[i].action, dstore[i].allies, dstore[i].direction, temp);
+            char allies = typeNum2Char(dstore[i].allies);
+            allies = toupper(allies);
+            printf("Play : '%c'\t   ", allies);
+            if (dstore[i].action == 0) {
+                Maps.tables[posA[dstore[i].allies][0]][posA[dstore[i].allies][1]] = ' ';
+                switch (dstore[i].direction) {
+                    case 0: posA[dstore[i].allies][0]--; break;
+                    case 1: posA[dstore[i].allies][0]++; break;
+                    case 2: posA[dstore[i].allies][1]--; break;
+                    case 3: posA[dstore[i].allies][1]++; break;
+                    default: break;
+                }
+                Maps.tables[posA[dstore[i].allies][0]][posA[dstore[i].allies][1]] = allies;
+                printf("walk to (%d,%d)", posA[dstore[i].allies][0], posA[dstore[i].allies][1]);
+            } else {
+                int iK = posA[dstore[i].allies][0];
+                int jK = posA[dstore[i].allies][1];
+                switch (dstore[i].direction) {
+                    case 0: iK--; break;
+                    case 1: iK++; break;
+                    case 2: jK--; break;
+                    case 3: jK++; break;
+                    default: break;
+                }
+                Maps.tables[iK][jK] = ' ';
+                printf("   kill (%d,%d)", iK, jK);
+            }
+            Maps.printTable();
+        } else {
+            printf("%d -> Not Set\n", i);
+        }
     }
 }
