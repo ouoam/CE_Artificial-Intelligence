@@ -10,6 +10,7 @@
   <body>
     <button class="mybutton">Run myFunction</button>
     <button class="btnNext">Next</button>
+    <button class="btnBack">Back</button>
     <hr />
     <noscript>
       <strong
@@ -82,32 +83,48 @@
 
         posA: [],
 
+        typeNum2Char: function(type) {
+          switch (type) {
+            case 0:
+              return "L";
+            case 1:
+              return "S";
+            case 2:
+              return "A";
+            default:
+              return " ";
+          }
+        },
+
+        calcDirection: function(direction, pos, revert) {
+          if (revert == true) {
+            direction = (direction & (1 << 1)) | !(direction & 1);
+          }
+          switch (direction) {
+            case 0:
+              return [pos[0] - 1, pos[1]];
+            case 1:
+              return [pos[0] + 1, pos[1]];
+            case 2:
+              return [pos[0], pos[1] - 1];
+            case 3:
+              return [pos[0], pos[1] + 1];
+          }
+        },
+
         findPath: function(tableIn) {
+          let tableLong = [];
           for (let i = 0; i < 8; i++) {
             for (let j = 0; j < 8; j++) {
               BFS.table[i][j] = tableIn[i][j];
             }
+            tableLong[i] = tableIn[i].join("");
           }
 
-          let out = [];
-          for (let i = 0, strLen = tableIn.length; i < strLen; i++) {
-            out[i] = tableIn[i].join("");
-          }
-          out = out.join("");
+          tableLong = tableLong.join("");
 
           for (let a = 0; a < 3; a++) {
-            let allies = " ";
-            switch (a) {
-              case 0:
-                allies = "L";
-                break;
-              case 1:
-                allies = "S";
-                break;
-              case 2:
-                allies = "A";
-                break;
-            }
+            let allies = BFS.typeNum2Char(a);
 
             let isRun = false;
             for (let i = 0; i < 8 && !isRun; i++) {
@@ -116,7 +133,7 @@
                   BFS.posA[a] = [];
                   BFS.posA[a][0] = i;
                   BFS.posA[a][1] = j;
-                  BFS.isRun = true;
+                  isRun = true;
                 }
               }
             }
@@ -126,7 +143,7 @@
             "findPath", // name of C function
             "string", // return type
             ["string"], // argument types
-            [out] // arguments
+            [tableLong] // arguments
           );
 
           for (let i = 0, strLen = result.length; i < strLen; i++) {
@@ -139,7 +156,7 @@
                 unsigned char direction : 2; /// 0 -> up  1 -> down  2 -> left  3 -> right
                 unsigned char none      : 2;
                 */
-              action: (doStore >> 0) & 1,
+              action: doStore & 1,
               // isSet     : (doStore >> 1) & 1,
               allies: (doStore >> 2) & 3,
               direction: (doStore >> 4) & 3
@@ -149,66 +166,39 @@
         },
 
         next: function() {
-          let allies = " ";
+          if (BFS.bufI >= BFS.bufView.length) return null;
 
           let out = BFS.bufView[BFS.bufI];
 
-          switch (out.allies) {
-            case 0:
-              allies = "L";
-              break;
-            case 1:
-              allies = "S";
-              break;
-            case 2:
-              allies = "A";
-              break;
-          }
-
           if (out.action == 0) {
             BFS.table[BFS.posA[out.allies][0]][BFS.posA[out.allies][1]] = " ";
-            switch (out.direction) {
-              case 0:
-                BFS.posA[out.allies][0]--;
-                break;
-              case 1:
-                BFS.posA[out.allies][0]++;
-                break;
-              case 2:
-                BFS.posA[out.allies][1]--;
-                break;
-              case 3:
-                BFS.posA[out.allies][1]++;
-                break;
-              default:
-                break;
-            }
-            BFS.table[BFS.posA[out.allies][0]][BFS.posA[out.allies][1]] = allies;
+            BFS.posA[out.allies] = BFS.calcDirection(out.direction, BFS.posA[out.allies]);
+            BFS.table[BFS.posA[out.allies][0]][BFS.posA[out.allies][1]] = BFS.typeNum2Char(out.allies);
           } else {
-            let iK = BFS.posA[out.allies][0];
-            let jK = BFS.posA[out.allies][1];
-            switch (out.direction) {
-              case 0:
-                iK--;
-                break;
-              case 1:
-                iK++;
-                break;
-              case 2:
-                jK--;
-                break;
-              case 3:
-                jK++;
-                break;
-              default:
-                break;
-            }
-            BFS.table[iK][jK] = " ";
+            let K = BFS.calcDirection(out.direction, BFS.posA[out.allies]);
+            BFS.table[K[0]][K[1]] = " ";
           }
 
           BFS.bufI++;
-          console.log(out);
-          console.log(BFS.table);
+          return BFS.table;
+        },
+
+        back: function() {
+          if (BFS.bufI <= 0) return null;
+          BFS.bufI--;
+
+          let out = BFS.bufView[BFS.bufI];
+
+          if (out.action == 0) {
+            BFS.table[BFS.posA[out.allies][0]][BFS.posA[out.allies][1]] = " ";
+            BFS.posA[out.allies] = BFS.calcDirection(out.direction, BFS.posA[out.allies], true);
+
+            BFS.table[BFS.posA[out.allies][0]][BFS.posA[out.allies][1]] = BFS.typeNum2Char(out.allies);
+          } else {
+            let K = BFS.calcDirection(out.direction, BFS.posA[out.allies]);
+            BFS.table[K[0]][K[1]] = BFS.typeNum2Char((out.allies + 1) % 3).toLocaleLowerCase();
+          }
+
           return BFS.table;
         }
       };
@@ -227,8 +217,22 @@
         BFS.findPath(table);
       });
 
+      function printTable(table) {
+        if (table == null) return;
+        let out = [];
+        for (let i = 0; i < table.length; i++) {
+          out[i] = table[i].join(" | ");
+        }
+        out = out.join("\n--+---+---+---+---+---+---+--\n");
+        return out;
+      }
+
       document.querySelector(".btnNext").addEventListener("click", function() {
-        console.log("OUT", BFS.next());
+        console.log(printTable(BFS.next()));
+      });
+
+      document.querySelector(".btnBack").addEventListener("click", function() {
+        console.log(printTable(BFS.back()));
       });
     </script>
     <script async type="text/javascript" src="bfsWASM.js"></script>
