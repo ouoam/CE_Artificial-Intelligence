@@ -51,23 +51,7 @@ window.onerror = function() {
   };
 };
 
-var BFS = {
-  table: [
-    ["a", "l", "s", " ", " ", " ", " ", " "],
-    ["a", "l", "a", " ", " ", " ", " ", " "],
-    ["s", "s", "l", " ", " ", " ", " ", " "],
-    ["a", "l", "s", " ", " ", " ", " ", " "],
-    [" ", " ", " ", " ", " ", " ", " ", " "],
-    [" ", " ", " ", " ", " ", " ", " ", "S"],
-    [" ", " ", " ", " ", " ", " ", " ", "A"],
-    [" ", " ", " ", " ", " ", " ", " ", "L"]
-  ],
-
-  bufView: [],
-  bufI: 0,
-
-  posA: [],
-
+var Search = {
   typeNum2Char: function(type) {
     switch (type) {
       case 0:
@@ -97,11 +81,16 @@ var BFS = {
     }
   },
 
-  findPath: function(tableIn) {
+  findPath: function(tableIn, SearchFunc) {
+    let table = [];
+    let posA = [];
+    let action = [];
+
     let tableLong = [];
     for (let i = 0; i < 8; i++) {
+      table[i] = [];
       for (let j = 0; j < 8; j++) {
-        BFS.table[i][j] = tableIn[i][j];
+        table[i][j] = tableIn[i][j] == "" ? " " : tableIn[i][j];
       }
       tableLong[i] = tableIn[i].join("");
     }
@@ -109,15 +98,15 @@ var BFS = {
     tableLong = tableLong.join("");
 
     for (let a = 0; a < 3; a++) {
-      let allies = BFS.typeNum2Char(a);
+      let allies = Search.typeNum2Char(a);
 
       let isRun = false;
       for (let i = 0; i < 8 && !isRun; i++) {
         for (let j = 0; j < 8 && !isRun; j++) {
-          if (BFS.table[i][j] == allies) {
-            BFS.posA[a] = [];
-            BFS.posA[a][0] = i;
-            BFS.posA[a][1] = j;
+          if (table[i][j] == allies) {
+            posA[a] = [];
+            posA[a][0] = i;
+            posA[a][1] = j;
             isRun = true;
           }
         }
@@ -125,7 +114,7 @@ var BFS = {
     }
 
     let result = Module.ccall(
-      "findPathBFS", // name of C function
+      SearchFunc, // name of C function
       "string", // return type
       ["string"], // argument types
       [tableLong] // arguments
@@ -138,57 +127,107 @@ var BFS = {
         allies: (doStore >> 2) & 3,
         direction: (doStore >> 4) & 3
       };
-      BFS.bufView[i] = out;
+      action[i] = out;
     }
+
+    return { table, posA, action, index: 0 };
   },
 
-  next: function() {
-    if (BFS.bufI >= BFS.bufView.length) return null;
-
-    let out = BFS.bufView[BFS.bufI];
+  next: function(index, action, table, posA) {
+    if (index >= action.length) return null;
+    let out = action[index];
 
     if (out.action == 0) {
-      BFS.table[BFS.posA[out.allies][0]][BFS.posA[out.allies][1]] = " ";
-      BFS.posA[out.allies] = BFS.calcDirection(
-        out.direction,
-        BFS.posA[out.allies]
+      table[posA[out.allies][0]][posA[out.allies][1]] = " ";
+      posA[out.allies] = Search.calcDirection(out.direction, posA[out.allies]);
+      table[posA[out.allies][0]][posA[out.allies][1]] = Search.typeNum2Char(
+        out.allies
       );
-      BFS.table[BFS.posA[out.allies][0]][
-        BFS.posA[out.allies][1]
-      ] = BFS.typeNum2Char(out.allies);
     } else {
-      let K = BFS.calcDirection(out.direction, BFS.posA[out.allies]);
-      BFS.table[K[0]][K[1]] = " ";
+      let K = Search.calcDirection(out.direction, posA[out.allies]);
+      table[K[0]][K[1]] = " ";
     }
 
-    BFS.bufI++;
-    return BFS.table;
+    index++;
+    return { index, action, table, posA };
   },
 
-  back: function() {
-    if (BFS.bufI <= 0) return null;
-    BFS.bufI--;
+  back: function(index, action, table, posA) {
+    if (index <= 0) return null;
+    index--;
 
-    let out = BFS.bufView[BFS.bufI];
+    let out = action[index];
 
     if (out.action == 0) {
-      BFS.table[BFS.posA[out.allies][0]][BFS.posA[out.allies][1]] = " ";
-      BFS.posA[out.allies] = BFS.calcDirection(
+      table[posA[out.allies][0]][posA[out.allies][1]] = " ";
+      posA[out.allies] = Search.calcDirection(
         out.direction,
-        BFS.posA[out.allies],
+        posA[out.allies],
         true
       );
 
-      BFS.table[BFS.posA[out.allies][0]][
-        BFS.posA[out.allies][1]
-      ] = BFS.typeNum2Char(out.allies);
+      table[posA[out.allies][0]][posA[out.allies][1]] = Search.typeNum2Char(
+        out.allies
+      );
     } else {
-      let K = BFS.calcDirection(out.direction, BFS.posA[out.allies]);
-      BFS.table[K[0]][K[1]] = BFS.typeNum2Char(
+      let K = Search.calcDirection(out.direction, posA[out.allies]);
+      table[K[0]][K[1]] = Search.typeNum2Char(
         (out.allies + 1) % 3
       ).toLocaleLowerCase();
     }
 
+    return { index, action, table, posA };
+  }
+};
+
+var BFS = {
+  table: [],
+  action: [],
+  index: 0,
+  posA: [],
+
+  findPath: function(tableIn) {
+    let res = Search.findPath(tableIn, "findPathBFS");
+    BFS = { ...BFS, ...res };
+  },
+
+  next: function() {
+    if (BFS.index >= BFS.action.length) return null;
+    let res = Search.next(BFS.index, BFS.action, BFS.table, BFS.posA);
+    BFS = { ...BFS, ...res };
     return BFS.table;
+  },
+
+  back: function() {
+    if (BFS.index <= 0) return null;
+    let res = Search.back(BFS.index, BFS.action, BFS.table, BFS.posA);
+    BFS = { ...BFS, ...res };
+    return BFS.table;
+  }
+};
+
+var DFS = {
+  table: [],
+  action: [],
+  index: 0,
+  posA: [],
+
+  findPath: function(tableIn) {
+    let res = Search.findPath(tableIn, "findPathDFS");
+    DFS = { ...DFS, ...res };
+  },
+
+  next: function() {
+    if (DFS.index >= DFS.action.length) return null;
+    let res = Search.next(DFS.index, DFS.action, DFS.table, DFS.posA);
+    DFS = { ...DFS, ...res };
+    return DFS.table;
+  },
+
+  back: function() {
+    if (DFS.index <= 0) return null;
+    let res = Search.back(DFS.index, DFS.action, DFS.table, DFS.posA);
+    DFS = { ...DFS, ...res };
+    return DFS.table;
   }
 };

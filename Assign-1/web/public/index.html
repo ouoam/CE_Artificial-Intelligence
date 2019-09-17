@@ -31,7 +31,7 @@
           [" ", " ", " ", " ", " ", " ", " ", "A"],
           [" ", " ", " ", " ", " ", " ", " ", "L"]
         ];
-        BFS.findPath(table);
+        DFS.findPath(table);
       });
 
       function printTable(table) {
@@ -45,11 +45,11 @@
       }
 
       document.querySelector(".btnNext").addEventListener("click", function() {
-        console.log(printTable(BFS.next()));
+        console.log(printTable(DFS.next()));
       });
 
       document.querySelector(".btnBack").addEventListener("click", function() {
-        console.log(printTable(BFS.back()));
+        console.log(printTable(DFS.back()));
       });
     </script>
     <script async type="text/javascript" src="WASM.js"></script>
