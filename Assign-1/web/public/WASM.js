@@ -125,7 +125,7 @@ var BFS = {
     }
 
     let result = Module.ccall(
-      "findPath", // name of C function
+      "findPathBFS", // name of C function
       "string", // return type
       ["string"], // argument types
       [tableLong] // arguments
@@ -134,15 +134,7 @@ var BFS = {
     for (let i = 0, strLen = result.length; i < strLen; i++) {
       let doStore = result.charCodeAt(i);
       let out = {
-        /*
-        unsigned char action    : 1; /// 0 -> walk  1 -> kill
-        unsigned char isSet     : 1;
-        unsigned char allies    : 2; /// 0 -> L  1 -> S  2 -> A
-        unsigned char direction : 2; /// 0 -> up  1 -> down  2 -> left  3 -> right
-        unsigned char none      : 2;
-        */
         action: doStore & 1,
-        // isSet     : (doStore >> 1) & 1,
         allies: (doStore >> 2) & 3,
         direction: (doStore >> 4) & 3
       };

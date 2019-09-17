@@ -106,7 +106,8 @@ struct doMap {
     }
 
     void printTableCost() {
-        printf("\n\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
+        printf("\n\nS(%2d,%2d) E(%2d,%2d) K(%2d,%2d) C %c\n", iS, jS, iE, jE, iK, jK, playAllies);
+        printf("\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
         printf("\n---+---+---+---+---+---+---+---+\n");
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
@@ -173,6 +174,7 @@ doStore *bfs(char tables[8][8]) {
         for (int j = 0; j < 8; j++) {
             if (tables[i][j] == ' ') continue;
             if (isupper(tables[i][j])) continue;
+            if (tables[i][j] == '#') continue;
             int type = typeChar2Num(tables[i][j]);
             numEnemies[type]++;
         }
@@ -184,8 +186,10 @@ doStore *bfs(char tables[8][8]) {
     bfsQueue *lastWinQ = nullptr;
 
     int alliesI = 0;
+    int lastFinishAllies = -1;
 
     while (numEnemies[0] > 0 || numEnemies[1] > 0 || numEnemies[2] > 0) {
+        if (lastFinishAllies == alliesI) break;
         { /// find character to find in map
             /// Get char of character to play
             char allies = typeNum2Char(alliesI);
@@ -294,6 +298,8 @@ doStore *bfs(char tables[8][8]) {
                             delete lastWinQ;
                         }
                         lastWinQ = temp;
+
+                        lastFinishAllies = typeChar2Num(f.playMap->playAllies);
                     }
                 }
             };
@@ -339,7 +345,6 @@ doStore *bfs(char tables[8][8]) {
         lMap = pMap;
         pMap = pMap->baseMap;
         while(pMap != nullptr) {
-            // printf("S(%2d,%2d) E(%2d,%2d) K(%2d,%2d) C %c\n", pMap->iS, pMap->jS, lMap->iE, lMap->jE, lMap->iK, lMap->jK, pMap->playAllies);
             // pMap->printTableCost();
 
             int iE = lMap->iE;
@@ -382,11 +387,193 @@ doStore *bfs(char tables[8][8]) {
             pMap = pMap->baseMap;
         }
     } else {
-        printf("Some thing bug");
+        printf("BFS : can not find path\n");
     }
 
     return dstore;
 }
+
+int dfsr(int i, int j, doMap *Map, int deep) {
+    /// filter not use queue
+    if (i < 0 || 7 < i || j < 0 || 7 < j) return 0;
+    if (Map->tablesCost[i][j] <= deep) return 0;
+
+    Map->tablesCost[i][j] = deep;
+
+    bool isFound = false;
+    auto checkEnemies = [&] (int iEnemies, int jEnemies)
+    {
+        if (iEnemies >= 0 && iEnemies < 8 && jEnemies >= 0 && jEnemies < 8 && !isFound) {
+            if (win(Map->playAllies, Map->tables[iEnemies][jEnemies]) == 1) {
+                isFound = true;
+                ///-------------------  FOUND  --------------------
+                Map->iE = i;
+                Map->jE = j;
+                Map->iK = iEnemies;
+                Map->jK = jEnemies;
+                return 1;
+            }
+        }
+        return 0;
+    };
+
+    if (checkEnemies(i - 1, j) ||
+        checkEnemies(i + 1, j) ||
+        checkEnemies(i, j - 1) ||
+        checkEnemies(i, j + 1))
+    {
+        return 1;
+    }
+
+    bfsQueue temp;
+
+    auto checkAndGo = [&] (int iGo, int jGo)
+    {
+        if (iGo >= 0 && iGo < 8 && jGo >= 0 && jGo < 8) {
+            if (Map->checkAround(Map->playAllies, iGo, jGo) == 1) {
+                return dfsr(iGo, jGo, Map, deep + 1);
+            }
+        }
+        return 0;
+    };
+
+    if (checkAndGo(i - 1, j) ||
+        checkAndGo(i + 1, j) ||
+        checkAndGo(i, j - 1) ||
+        checkAndGo(i, j + 1))
+    {
+        return 1;
+    }
+    return 0;
+}
+
+doStore *dfs(char tables[8][8]) {
+    int numEnemies[3] = {0, 0, 0};
+    int posA[3][2] = {0, 0, 0, 0, 0, 0};
+
+    for (int a = 0; a < 3; a++) {
+        char allies = typeNum2Char(a);
+        allies = toupper(allies);
+
+        bool isRun = false;
+        for (int i = 0; i < 8 && !isRun; i++) {
+            for (int j = 0; j < 8 && !isRun; j++) {
+                if (tables[i][j] == allies) {
+                    posA[a][0] = i;
+                    posA[a][1] = j;
+                    isRun = true;
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            if (tables[i][j] == ' ') continue;
+            if (isupper(tables[i][j])) continue;
+            if (tables[i][j] == '#') continue;
+            int type = typeChar2Num(tables[i][j]);
+            numEnemies[type]++;
+        }
+    }
+
+    int alliesI = 0;
+    int lastFinishAllies = -1;
+
+    doMap *beforeMap = nullptr;
+
+    while (numEnemies[0] > 0 || numEnemies[1] > 0 || numEnemies[2] > 0) {
+        if (numEnemies[alliesI] > 0) {
+
+            char allies = typeNum2Char(alliesI);
+            allies = toupper(allies);
+
+            doMap *nextMap = nullptr;
+
+            int nextDeep = 0;
+
+            if (beforeMap == nullptr) {
+                nextMap = new doMap(beforeMap, allies, tables);
+            } else {
+                nextMap = new doMap(beforeMap, allies, beforeMap->tables);
+                nextMap->tables[beforeMap->iK][beforeMap->jK] = ' ';
+                nextMap->tables[beforeMap->iE][beforeMap->jE] = beforeMap->playAllies;
+                nextMap->tables[beforeMap->iS][beforeMap->jS] = ' ';
+                nextDeep = beforeMap->tablesCost[beforeMap->iE][beforeMap->jE] + 1;
+            }
+
+            nextMap->iS = posA[alliesI][0];
+            nextMap->jS = posA[alliesI][1];
+            nextMap->playAllies = allies;
+            int res = dfsr(nextMap->iS, nextMap->jS, nextMap, nextDeep);
+            if (res == 1) {
+                posA[alliesI][0] = nextMap->iE;
+                posA[alliesI][1] = nextMap->jE;
+                numEnemies[alliesI]--;
+                beforeMap = nextMap;
+                // beforeMap->printTableCost();
+                lastFinishAllies = alliesI;
+            } else {
+                delete nextMap;
+                if (lastFinishAllies == alliesI) break;
+            }
+        }
+
+        alliesI++;
+        alliesI %= 3;
+    }
+
+    doStore *dstore = nullptr;
+
+    if (beforeMap != nullptr) {
+        dstore = new doStore[beforeMap->tablesCost[beforeMap->iE][beforeMap->jE] + 2];
+
+        doMap *pMap = beforeMap;
+        while (pMap != nullptr) {
+            int iE = pMap->iE;
+            int jE = pMap->jE;
+            int cost = pMap->tablesCost[iE][jE];
+            int typeNum = typeChar2Num(pMap->playAllies);
+
+            /// Store kill action
+            dstore[cost].action = 1;
+            dstore[cost].isSet = 1;
+            dstore[cost].allies = typeNum;
+            dstore[cost].direction = (pMap->jE - pMap->jK == 0 ? (pMap->iE - pMap->iK == -1 ? 1 : 0) : (1 << 1) | (pMap->jE - pMap->jK == -1 ? 1 : 0));
+
+            while (iE != pMap->iS || jE != pMap->jS) {
+                auto check = [&] (int i, int j, int direction)
+                {
+                    if (i >= 0 && i < 8 && j >= 0 && j < 8) {
+                        if (pMap->tablesCost[i][j] == cost - 1) {
+                            cost--;
+                            iE = i;
+                            jE = j;
+
+                            /// Store walk action
+                            dstore[cost].action = 0;
+                            dstore[cost].isSet = 1;
+                            dstore[cost].allies = typeNum;
+                            dstore[cost].direction = direction;
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+                if      (check(iE - 1, jE, 1)) continue;
+                else if (check(iE + 1, jE, 0)) continue;
+                else if (check(iE, jE - 1, 3)) continue;
+                else if (check(iE, jE + 1, 2)) continue;
+            }
+
+            pMap = pMap->baseMap;
+        }
+    } else {
+        printf("DFS : can not find path\n");
+    }
+    return dstore;
+}
+
 
 unsigned char *findPath(char inTable[]) {
     char table[8][8];
@@ -409,17 +596,17 @@ unsigned char *findPath(char inTable[]) {
 
 int main() {
     char table[8][8] = {
-        {'a', 'l', 's', ' ', ' ', ' ', ' ', ' '},
-        {'a', 'l', 'a', ' ', ' ', ' ', ' ', ' '},
-        {'s', 's', 'l', ' ', ' ', ' ', ' ', ' '},
-        {'a', 'l', 's', ' ', ' ', ' ', ' ', ' '},
+        {'l', '#', ' ', ' ', ' ', ' ', ' ', ' '},
+        {' ', '#', ' ', ' ', 's', ' ', 'l', ' '},
         {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
-        {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'S'},
-        {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'A'},
-        {' ', ' ', ' ', ' ', ' ', ' ', ' ', 'L'}
+        {' ', 'a', 'a', ' ', ' ', ' ', 's', ' '},
+        {'#', '#', '#', '#', ' ', '#', ' ', ' '},
+        {' ', ' ', ' ', '#', ' ', ' ', ' ', ' '},
+        {'S', ' ', ' ', '#', ' ', ' ', ' ', '#'},
+        {'L', ' ', ' ', ' ', ' ', 'A', ' ', ' '}
     };
 
-    doStore *dstore =  bfs(table);
+    doStore *dstore =  dfs(table);
 
     int posA[3][2];
     doMap Maps = doMap(nullptr, ' ', table);
