@@ -92,7 +92,7 @@ var Search = {
       for (let j = 0; j < 8; j++) {
         table[i][j] = tableIn[i][j] == "" ? " " : tableIn[i][j];
       }
-      tableLong[i] = tableIn[i].join("");
+      tableLong[i] = table[i].join("");
     }
 
     tableLong = tableLong.join("");
