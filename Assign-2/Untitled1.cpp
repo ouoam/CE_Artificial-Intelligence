@@ -5,6 +5,49 @@ using namespace std;
 #define ROW 15
 #define COL 15
 
+// Creating a shortcut for int, int pair type
+typedef pair<int, int> Pair;
+
+// Creating a shortcut for pair<int, pair<int, int>> type
+typedef pair<double, pair<int, int>> pPair;
+
+struct cell;
+struct doMap;
+
+int typeChar2Num(char t);
+char typeNum2Char(int t);
+int win(char allies, char enemies);
+float cost(cell grid[][COL], int row, int col);
+bool canWalkIn(char tile);
+
+
+bool isValid(int row, int col);
+bool isUnBlocked(cell grid[][COL], int row, int col);
+bool isDestination(int row, int col, Pair dest);
+double calculateHValue(int row, int col, Pair dest);
+void tracePath(cell cellDetails[][COL], Pair dest);
+void aStarSearch(char grid[][COL], Pair src, Pair dest);
+
+// A structure to hold the neccesary parameters
+struct cell
+{
+    char in;
+	// Row and Column index of its parent
+	// Note that 0 <= i <= ROW-1 & 0 <= j <= COL-1
+	int parent_i, parent_j;
+	// f = g + h
+	double f, g, h;
+
+	cell ()
+	{
+	    f = FLT_MAX;
+        g = FLT_MAX;
+        h = FLT_MAX;
+        parent_i = -1;
+        parent_j = -1;
+	}
+};
+
 
 int typeChar2Num(char t) {
     t = tolower(t);
@@ -42,9 +85,9 @@ int win(char allies, char enemies) {
     return 2;
 }
 
-float cost(char grid[][COL], int row, int col)
+float cost(cell grid[][COL], int row, int col)
 {
-    switch (grid[row][col]) {
+    switch (grid[row][col].in) {
         case ' ': return 1.0;
         case '*': return 4.0;
         case '%': return 7.0;
@@ -52,22 +95,12 @@ float cost(char grid[][COL], int row, int col)
     }
 }
 
-
-// Creating a shortcut for int, int pair type
-typedef pair<int, int> Pair;
-
-// Creating a shortcut for pair<int, pair<int, int>> type
-typedef pair<double, pair<int, int>> pPair;
-
-// A structure to hold the neccesary parameters
-struct cell
+bool canWalkIn(char tile)
 {
-	// Row and Column index of its parent
-	// Note that 0 <= i <= ROW-1 & 0 <= j <= COL-1
-	int parent_i, parent_j;
-	// f = g + h
-	double f, g, h;
-};
+    return tile == ' ' || tile == '*' || tile == '%';
+}
+
+
 
 // A Utility Function to check whether given cell (row, col)
 // is a valid cell or not.
@@ -81,14 +114,125 @@ bool isValid(int row, int col)
 
 // A Utility Function to check whether the given cell is
 // blocked or not
-bool isUnBlocked(char grid[][COL], int row, int col)
+bool isUnBlocked(cell grid[][COL], int row, int col)
 {
 	// Returns true if the cell is not blocked else false
-	if (grid[row][col] == ' ' || grid[row][col] == '*' || grid[row][col] == '%' || grid[row][col] == 'L'|| grid[row][col] == 's')
+	if (canWalkIn(grid[row][col].in) || grid[row][col].in == 'L'|| grid[row][col].in == 's')
 		return (true);
 	else
 		return (false);
 }
+
+struct doMap {
+    cell tables[ROW][COL];
+    char playAllies;
+
+    int iS = -1;
+    int jS = -1;
+
+    int iE = -1;
+    int jE = -1;
+
+    int iK = -1;
+    int jK = -1;
+
+    struct doMap *baseMap;
+
+    doMap(struct doMap *baseMapIn, char allies, cell oldMap[ROW][COL]) :
+        playAllies(allies), baseMap(baseMapIn)
+    {
+        for (int i = 0; i < ROW; i++) {
+            for (int j = 0; j < COL; j++) {
+                this->tables[i][j].in = oldMap[i][j].in;
+            }
+        }
+    }
+
+    doMap(struct doMap *baseMapIn, char allies, cell *oldMap[ROW]) :
+        playAllies(allies), baseMap(baseMapIn)
+    {
+        for (int i = 0; i < ROW; i++) {
+            for (int j = 0; j < COL; j++) {
+                this->tables[i][j].in = oldMap[i][j].in;
+            }
+        }
+    }
+
+    void printTable() {
+        // printf("\n\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
+        printf("\n");
+        for (int j = 0; j < COL; j++) {
+            printf("---+");
+        }
+        printf("\n");
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                printf(" %c |", this->tables[i][j].in);
+            }
+            printf("\n");
+            for (int j = 0; j < COL; j++) {
+                printf("---+");
+            }
+            printf("\n");
+        }
+    }
+
+    void printTableCost() {
+        printf("\n\nS(%2d,%2d) E(%2d,%2d) K(%2d,%2d) C %c\n", iS, jS, iE, jE, iK, jK, playAllies);
+        printf("\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
+        printf("\n");
+        for (int j = 0; j < COL; j++) {
+            printf("---+");
+        }
+        printf("\n");
+        for (int i = 0; i < ROW; i++) {
+            for (int j = 0; j < COL; j++) {
+                if (this->tables[i][j].in != ' ' && this->tables[i][j].in != '*' && this->tables[i][j].in != '%') {
+                    printf(" %c |", this->tables[i][j].in);
+                } else if (this->tables[i][j].g != FLT_MAX) {
+                    printf("%3f|", this->tables[i][j].g);
+                } else {
+                    printf("   |");
+                }
+            }
+            printf("\n");
+            for (int j = 0; j < COL; j++) {
+                printf("---+");
+            }
+            printf("\n");
+        }
+    }
+
+    int checkAround(char allies, int i, int j) {
+        if (canWalkIn(this->tables[i][j].in)) return 0;
+
+        auto checkA = [&] (int iC, int jC)
+        {
+            if (isValid(iC, jC)) {
+                if (win(allies, this->tables[iC][jC].in) < 0) return -1;
+            }
+            return 1;
+        };
+
+        if ( checkA(i - 1, j) == -1 ||
+             checkA(i + 1, j) == -1 ||
+             checkA(i, j - 1) == -1 ||
+             checkA(i, j + 1) == -1 )
+            return -1;
+
+        return 1;
+    }
+};
+
+struct doStore {
+    unsigned char action    : 1; /// 0 -> walk  1 -> kill
+    unsigned char isSet     : 1;
+    unsigned char allies    : 2; /// 0 -> L  1 -> S  2 -> A
+    unsigned char direction : 2; /// 0 -> up  1 -> down  2 -> left  3 -> right
+    unsigned char none      : 2;
+
+    doStore() : action(0), isSet(0), allies(0), direction(0), none(0)  {}
+};
 
 // A Utility Function to check whether destination cell has
 // been reached or not
@@ -101,12 +245,19 @@ bool isDestination(int row, int col, Pair dest)
 }
 
 // A Utility Function to calculate the 'h' heuristics.
-double calculateHValue(int row, int col, Pair dest)
+double calculateHValue(int row, int col, Pair dest[], int numDest)
 {
 	// Return using the distance formula
 //	return ((double)sqrt ((row-dest.first)*(row-dest.first)
 //						+ (col-dest.second)*(col-dest.second)));
-    return abs(row - dest.first) + abs(col - dest.second);
+    double minVal = FLT_MAX;
+    for (int i = 0; i < numDest; i++) {
+        double calc = abs(row - dest[i].first) + abs(col - dest[i].second);
+        if (minVal > calc || minVal == FLT_MAX) {
+            minVal = calc;
+        }
+    }
+    return minVal;
 }
 
 // A Utility Function to trace the path from the source
@@ -143,7 +294,7 @@ void tracePath(cell cellDetails[][COL], Pair dest)
 // A Function to find the shortest path between
 // a given source cell to a destination cell according
 // to A* Search Algorithm
-void aStarSearch(char grid[][COL], Pair src, Pair dest)
+void aStarSearch(cell cellDetails[ROW][COL], Pair src, Pair dest[], int numDest)
 {
 	// If the source is out of range
 	if (isValid (src.first, src.second) == false)
@@ -153,26 +304,26 @@ void aStarSearch(char grid[][COL], Pair src, Pair dest)
 	}
 
 	// If the destination is out of range
-	if (isValid (dest.first, dest.second) == false)
-	{
-		printf ("Destination is invalid\n");
-		return;
-	}
+//	if (isValid (dest.first, dest.second) == false)
+//	{
+//		printf ("Destination is invalid\n");
+//		return;
+//	}
 
 	// Either the source or the destination is blocked
-	if (isUnBlocked(grid, src.first, src.second) == false ||
-			isUnBlocked(grid, dest.first, dest.second) == false)
-	{
-		printf ("Source or the destination is blocked\n");
-		return;
-	}
+//	if (isUnBlocked(grid, src.first, src.second) == false ||
+//			isUnBlocked(grid, dest.first, dest.second) == false)
+//	{
+//		printf ("Source or the destination is blocked\n");
+//		return;
+//	}
 
 	// If the destination cell is the same as source cell
-	if (isDestination(src.first, src.second, dest) == true)
-	{
-		printf ("We are already at the destination\n");
-		return;
-	}
+//	if (isDestination(src.first, src.second, dest) == true)
+//	{
+//		printf ("We are already at the destination\n");
+//		return;
+//	}
 
 	// Create a closed list and initialise it to false which means
 	// that no cell has been included yet
@@ -182,21 +333,9 @@ void aStarSearch(char grid[][COL], Pair src, Pair dest)
 
 	// Declare a 2D array of structure to hold the details
 	//of that cell
-	cell cellDetails[ROW][COL];
+	//cell cellDetails[ROW][COL];
 
 	int i, j;
-
-	for (i=0; i<ROW; i++)
-	{
-		for (j=0; j<COL; j++)
-		{
-			cellDetails[i][j].f = FLT_MAX;
-			cellDetails[i][j].g = FLT_MAX;
-			cellDetails[i][j].h = FLT_MAX;
-			cellDetails[i][j].parent_i = -1;
-			cellDetails[i][j].parent_j = -1;
-		}
-	}
 
 	// Initialising the parameters of the starting node
 	i = src.first, j = src.second;
@@ -233,24 +372,26 @@ void aStarSearch(char grid[][COL], Pair src, Pair dest)
         {
             // If the destination cell is the same as the
             // current successor
-            if (isDestination(iGo, jGo, dest) == true)
-            {
-                // Set the Parent of the destination cell
-                cellDetails[iGo][jGo].parent_i = i;
-                cellDetails[iGo][jGo].parent_j = j;
-                printf ("The destination cell is found\n");
-                tracePath (cellDetails, dest);
-                foundDest = true;
-                return true;
+            for (int k = 0; k < numDest; k++) {
+                if (isDestination(iGo, jGo, dest[k]) == true)
+                {
+                    // Set the Parent of the destination cell
+                    cellDetails[iGo][jGo].parent_i = i;
+                    cellDetails[iGo][jGo].parent_j = j;
+                    printf ("The destination cell is found\n");
+                    tracePath (cellDetails, dest[k]);
+                    foundDest = true;
+                    return true;
+                }
             }
             // If the successor is already on the closed
             // list or if it is blocked, then ignore it.
             // Else do the following
-            else if (closedList[iGo][jGo] == false &&
-                    isUnBlocked(grid, iGo, jGo) == true)
+            if (closedList[iGo][jGo] == false &&
+                    isUnBlocked(cellDetails, iGo, jGo) == true)
             {
-                gNew = cellDetails[i][j].g + cost(grid, iGo, jGo);
-                hNew = calculateHValue (iGo, jGo, dest);
+                gNew = cellDetails[i][j].g + cost(cellDetails, iGo, jGo);
+                hNew = calculateHValue (iGo, jGo, dest, numDest);
                 fNew = gNew + hNew;
 
                 // If it isn’t on the open list, add it to
@@ -336,7 +477,20 @@ void aStarSearch(char grid[][COL], Pair src, Pair dest)
 //
 //		//----------- 8th Successor (South-West) ------------
 //        if (successor(i + 1, j - 1)) return;
+
+        for (i = 0; i < ROW; i++) {
+            for (j = 0; j < COL; j++) {
+                if (cellDetails[i][j].g == FLT_MAX) {
+                    printf("%4c ", '#');
+                } else {
+                    printf("%4.1f ", cellDetails[i][j].g);
+                }
+            }
+            printf("\n");
+        }
+        printf("\n\n");
 	}
+
 
 	// When the destination cell is not found and the open
 	// list is empty, then we conclude that we failed to
@@ -346,6 +500,85 @@ void aStarSearch(char grid[][COL], Pair src, Pair dest)
 		printf("Failed to find the Destination Cell\n");
 
 	return;
+}
+
+doStore *Astar(char tables[ROW][COL]) {
+    int numEnemies[3] = {0, 0, 0};
+    Pair posA[3];
+
+    for (int a = 0; a < 3; a++) {
+        char allies = typeNum2Char(a);
+        allies = toupper(allies);
+
+        bool isRun = false;
+        for (int i = 0; i < ROW && !isRun; i++) {
+            for (int j = 0; j < COL && !isRun; j++) {
+                if (tables[i][j] == allies) {
+                    posA[a] = make_pair(i, j);
+                    isRun = true;
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < ROW; i++) {
+        for (int j = 0; j < COL; j++) {
+            int type = typeChar2Num(tables[i][j]);
+            if (type == 3) continue;
+            numEnemies[type]++;
+        }
+    }
+
+    int alliesI = 0;
+    int lastFinishAllies = -1;
+
+    while (numEnemies[0] > 0 || numEnemies[1] > 0 || numEnemies[2] > 0) {
+        if (numEnemies[alliesI] > 0) {
+
+            char allies = typeNum2Char(alliesI);
+            allies = toupper(allies);
+
+            Pair posE[3];
+            int posEi = 0;
+
+            char muchWin = win(allies, 'l') ? 'l' : (win(allies, 's') ? 's' :win(allies, 'a') ? 'a' : ' ');
+
+            cell tablesCell[ROW][COL];
+
+            for (int i = 0; i < ROW; i++) {
+                for (int j = 0; j < COL; j++) {
+                    if (tables[i][j] == muchWin) {
+                        posE[posEi] = make_pair(i, j);
+                        posEi++;
+                    }
+                }
+            }
+
+            for (int i = 0; i < ROW; i++) {
+                for (int j = 0; j < COL; j++) {
+
+                    tablesCell[i][j].in = tables[i][j];
+                }
+            }
+
+            aStarSearch(tablesCell, posA[alliesI], posE, posEi);
+            return nullptr;
+        }
+
+        alliesI++;
+        alliesI %= 3;
+    }
+}
+
+unsigned char *runAndcopyAstart(char table[ROW][COL]) {
+	doStore *dstore =  Astar(table);
+
+    int c = 0;
+    while (dstore[c++].isSet != 0);
+
+    unsigned char *out = new unsigned char[c + 1];
+    memcpy(out, dstore, c);
+	return out;
 }
 
 
@@ -374,13 +607,15 @@ int main()
         {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '}  // 14
     };
 
-	// Source is the left-most bottom-most corner
-	Pair src = make_pair(13, 8);
+//	// Source is the left-most bottom-most corner
+//	Pair src = make_pair(13, 8);
+//
+//	// Destination is the left-most top-most corner
+//	Pair dest = make_pair(2, 1);
+//
+//	aStarSearch(grid, src, dest);
 
-	// Destination is the left-most top-most corner
-	Pair dest = make_pair(2, 1);
-
-	aStarSearch(grid, src, dest);
+	runAndcopyAstart(grid);
 
 	return(0);
 }
