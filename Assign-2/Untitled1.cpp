@@ -1,5 +1,13 @@
 // A C++ Program to implement A* Search Algorithm
-#include<bits/stdc++.h>
+#include<cstdio>
+#include<stack>
+#include<queue>
+#include<set>
+#include<climits>
+#include<cfloat>
+#include<cctype>
+#include<cmath>
+#include<cstring>
 using namespace std;
 
 #define ROW 15
@@ -13,6 +21,7 @@ typedef pair<double, pair<int, int>> pPair;
 
 struct cell;
 struct doMap;
+struct doStore;
 
 int typeChar2Num(char t);
 char typeNum2Char(int t);
@@ -24,9 +33,12 @@ bool canWalkIn(char tile);
 bool isValid(int row, int col);
 bool isUnBlocked(cell grid[][COL], int row, int col);
 bool isDestination(int row, int col, Pair dest);
-double calculateHValue(int row, int col, Pair dest);
+double calculateHValue(int row, int col, Pair dest[], int numDest);
 void tracePath(cell cellDetails[][COL], Pair dest);
-void aStarSearch(char grid[][COL], Pair src, Pair dest);
+int calcDirection(int fromI, int fromJ, int toI, int toJ);
+void traceBack(doMap *Map, queue<doStore> *doQueue);
+int aStarSearch(doMap *Map, Pair dest[], int numDest);
+doStore *Astar(char tables[ROW][COL]);
 
 // A structure to hold the neccesary parameters
 struct cell
@@ -310,6 +322,67 @@ void tracePath(cell cellDetails[][COL], Pair dest)
 	return;
 }
 
+int calcDirection(int fromI, int fromJ, int toI, int toJ) {
+    if (fromI == toI) {
+        if (fromJ == toJ - 1) return 2;
+        else return 3;
+    } else {
+        if (fromI == toI - 1) return 0;
+        else return 1;
+    }
+}
+
+void traceBack(doMap *Map, queue<doStore> *doQueue)
+{
+	int row = Map->End.first;
+	int col = Map->End.second;
+
+	stack<Pair> Path;
+
+	while (!(Map->tables[row][col].parent_i == row
+			&& Map->tables[row][col].parent_j == col ))
+	{
+		Path.push (make_pair (row, col));
+		int temp_row = Map->tables[row][col].parent_i;
+		int temp_col = Map->tables[row][col].parent_j;
+		row = temp_row;
+		col = temp_col;
+	}
+
+	// Path.push (make_pair (row, col));
+	while (!Path.empty())
+	{
+		Pair p = Path.top();
+		Path.pop();
+		// printf("-> (%d,%d) ",p.first,p.second);
+
+		doStore doTemp;
+		doTemp.action = 0;
+        doTemp.isSet = 1;
+        doTemp.allies = Map->playAllies;
+        doTemp.direction = calcDirection(row, col, p.first, p.second);
+
+        doQueue->push(doTemp);
+
+        row = p.first;
+        col = p.second;
+	}
+
+	if (row != Map->End.first || col != Map->End.second) {
+        printf("\n\n!! Something error !!\n\n");
+        return;
+	}
+
+	doStore doTemp;
+	doTemp.action = 1;
+    doTemp.isSet = 1;
+    doTemp.allies = Map->playAllies;
+    doTemp.direction = calcDirection(Map->End.first, Map->End.second, Map->Kill.first, Map->Kill.second);
+    doQueue->push(doTemp);
+
+	return;
+}
+
 // A Function to find the shortest path between
 // a given source cell to a destination cell according
 // to A* Search Algorithm
@@ -359,7 +432,7 @@ int aStarSearch(doMap *Map, Pair dest[], int numDest)
 	// Initialising the parameters of the starting node
 	i = Map->Start.first, j = Map->Start.second;
 	Map->tables[i][j].f = 0.0;
-	Map->tables[i][j].g = 0.0;
+	// Map->tables[i][j].g = 0.0;
 	Map->tables[i][j].h = 0.0;
 	Map->tables[i][j].parent_i = i;
 	Map->tables[i][j].parent_j = j;
@@ -401,7 +474,7 @@ int aStarSearch(doMap *Map, Pair dest[], int numDest)
                     // printf ("The destination cell is found\n");
                     Map->Kill = dest[k];
                     Map->End = make_pair(i, j);
-                    Map->printTable();
+                    // Map->printTableCost();
                     // tracePath (Map->tables, dest[k]);
                     foundDest = true;
                     return true;
@@ -519,6 +592,8 @@ doStore *Astar(char tables[ROW][COL]) {
     int numEnemies[3] = {0, 0, 0};
     Pair posA[3];
 
+    queue<doStore> doQueue;
+
     for (int a = 0; a < 3; a++) {
         char allies = typeNum2Char(a);
         allies = toupper(allies);
@@ -555,45 +630,54 @@ doStore *Astar(char tables[ROW][COL]) {
         int muchWinType = typeChar2Num(muchWin);
 
         if (numEnemies[muchWinType] > 0) {
-            doMap *nextMap = nullptr;
+            doMap *nowMap = nullptr;
 
             if (beforeMap == nullptr) {
-                nextMap = new doMap(beforeMap, allies, tables);
+                nowMap = new doMap(beforeMap, allies, tables);
+                nowMap->tables[posA[alliesI].first][posA[alliesI].second].g = 0;
             } else {
-                nextMap = new doMap(beforeMap, allies, beforeMap->tables);
-                nextMap->tables[beforeMap->Kill.first][beforeMap->Kill.second] = ' ';
-                nextMap->tables[beforeMap->End.first][beforeMap->End.second] = beforeMap->playAllies;
+                nowMap = new doMap(beforeMap, allies, beforeMap->tables);
+                nowMap->tables[beforeMap->Kill.first][beforeMap->Kill.second] = ' ';
+                nowMap->tables[beforeMap->End.first][beforeMap->End.second] = beforeMap->playAllies;
 
                 char mapAtFirst = tables[beforeMap->Start.first][beforeMap->Start.second];
                 if (mapAtFirst == ' ' || mapAtFirst == '#' || mapAtFirst == '*' || mapAtFirst == '%') {
-                    nextMap->tables[beforeMap->Start.first][beforeMap->Start.second] = mapAtFirst;
+                    nowMap->tables[beforeMap->Start.first][beforeMap->Start.second] = mapAtFirst;
                 } else {
-                    nextMap->tables[beforeMap->Start.first][beforeMap->Start.second] = ' ';
+                    nowMap->tables[beforeMap->Start.first][beforeMap->Start.second] = ' ';
                 }
-
+                nowMap->tables[posA[alliesI].first][posA[alliesI].second].g = beforeMap->tables[beforeMap->End.first][beforeMap->End.second].g + 1;
             }
-            nextMap->Start = posA[alliesI];
-            nextMap->playAllies = allies;
+            nowMap->Start = posA[alliesI];
+            nowMap->playAllies = allies;
 
             Pair posE[3];
             int posEi = 0;
 
             for (int i = 0; i < ROW; i++) {
                 for (int j = 0; j < COL; j++) {
-                    if (nextMap->tables[i][j].in == muchWin) {
+                    if (nowMap->tables[i][j].in == muchWin) {
                         posE[posEi] = make_pair(i, j);
                         posEi++;
                     }
                 }
             }
 
-            if (aStarSearch(nextMap, posE, posEi)) {
-                posA[alliesI] = nextMap->End;
+            if (aStarSearch(nowMap, posE, posEi)) {
+                posA[alliesI] = nowMap->End;
                 numEnemies[muchWinType]--;
-                beforeMap = nextMap;
+
+                traceBack(nowMap, &doQueue);
+
+                // printf("Size %d \n", doQueue.size());
+
+                if (beforeMap != nullptr) {
+                    delete beforeMap;
+                }
+                beforeMap = nowMap;
                 lastFinishAllies = alliesI;
             } else {
-                delete nextMap;
+                delete nowMap;
                 if (lastFinishAllies == alliesI) {
                     printf("!!Can not find!!\n");
                     break;
@@ -604,6 +688,17 @@ doStore *Astar(char tables[ROW][COL]) {
         alliesI++;
         alliesI %= 3;
     }
+    int sizeArray = doQueue.size();
+    doStore *dstore = nullptr;
+    dstore = new doStore[sizeArray + 1];
+    for (int i = 0; i < sizeArray; i++)
+    {
+        doStore doTemp = doQueue.front();
+        doQueue.pop();
+
+        dstore[i] = doTemp;
+    }
+    return dstore;
 }
 
 unsigned char *runAndcopyAstart(char table[ROW][COL]) {
@@ -617,31 +712,42 @@ unsigned char *runAndcopyAstart(char table[ROW][COL]) {
 	return out;
 }
 
+extern "C" {
+
+unsigned char *findPathAstar(char inTable[]) {
+    char table[ROW][COL];
+    for (int i = 0; i < ROW; i++) {
+        for (int j = 0; j < COL; j++) {
+            table[i][j] = inTable[i*8 + j];
+        }
+    }
+
+    return runAndcopyAstart(table);
+}
+}
+
 
 // Driver program to test above function
 int main()
 {
-	/* Description of the Grid-
-	1--> The cell is not blocked
-	0--> The cell is blocked */
-	char grid[ROW][COL] =
-	{ //  0   1   2   3   4   5   6   7   8   9  10  11  12  13  14
-        {'*',' ',' ',' ','%','*','*',' ','a','*','*',' ','%',' ',' '}, // 0
-        {'*','%',' ',' ',' ','*','%',' ',' ',' ','*',' ','*',' ',' '}, // 1
-        {' ','s','%',' ','*',' ',' ',' ','*','%','%','*',' ',' ',' '}, // 2
-        {'%','%','*',' ','%','l',' ','%','s','*','%',' ','%','a',' '}, // 3
-        {' ',' ','*',' ','%','a','l','*','%','%',' ',' ',' ','%',' '}, // 4
-        {'%',' ',' ',' ','*','%','%','*','%',' ',' ','s',' ','%',' '}, // 5
-        {' ','l',' ',' ','*',' ','*','*',' ',' ',' ',' ','%','*',' '}, // 6
-        {'*','#','#',' ','%','#','#','*','#','#','#','#','*',' ',' '}, // 7
-        {' ','*','*',' ','%','*',' ',' ',' ',' ',' ',' ',' ','*',' '}, // 8
-        {' ',' ',' ','%',' ','*','%',' ',' ','%',' ',' ','%',' ',' '}, // 9
-        {' ',' ',' ',' ','%',' ','%','%','*',' ','*','*','*','%',' '}, // 10
-        {'%',' ',' ','*',' ','%',' ','%',' ',' ','%','S',' ','A',' '}, // 11
-        {'*',' ',' ',' ','*',' ','%','*','%','%','%','%','*','*',' '}, // 12
-        {'*',' ',' ',' ','%','%','*','%','L',' ','*','*',' ','*',' '}, // 13
-        {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '}  // 14
-    };
+//	char grid[ROW][COL] =
+//	{
+//        {' ', '*', '*', '*', ' ', ' ', ' ', '*', '*', ' ', '%', ' ', '%', '%', ' '},
+//        {' ', ' ', '%', '%', 'a', ' ', '%', ' ', ' ', ' ', ' ', '%', '%', '%', ' '},
+//        {' ', ' ', ' ', '*', '*', '%', ' ', ' ', ' ', ' ', '%', ' ', 's', ' ', '*'},
+//        {' ', ' ', ' ', '%', ' ', ' ', '%', '*', '%', ' ', ' ', '*', '*', '%', 'l'},
+//        {' ', '%', ' ', '%', '%', ' ', ' ', ' ', ' ', ' ', '%', '%', ' ', '*', ' '},
+//        {'%', ' ', '*', '%', '*', ' ', 'l', '*', '%', '*', ' ', ' ', '*', ' ', ' '},
+//        {' ', '*', ' ', '*', '%', ' ', ' ', '%', '*', ' ', '%', ' ', ' ', ' ', ' '},
+//        {'l', '%', '*', '%', '*', '%', '*', '%', '*', ' ', ' ', '*', '*', '*', ' '},
+//        {'*', ' ', '*', 'a', 's', ' ', '*', '%', '%', ' ', 's', '*', ' ', '%', '%'},
+//        {'*', ' ', '*', '*', ' ', '*', '*', ' ', ' ', ' ', ' ', ' ', 'a', ' ', ' '},
+//        {'#', '#', '%', '#', '#', '#', ' ', ' ', '#', '*', '#', '*', '#', '%', ' '},
+//        {'%', ' ', ' ', '*', ' ', '*', ' ', '*', '*', ' ', '%', ' ', ' ', 'S', ' '},
+//        {'%', ' ', '*', ' ', '*', ' ', ' ', ' ', ' ', '%', ' ', '%', ' ', '*', ' '},
+//        {' ', ' ', '%', ' ', ' ', '*', '%', ' ', '%', ' ', '%', ' ', ' ', '*', ' '},
+//        {' ', ' ', ' ', '%', 'A', '%', 'L', '*', '*', ' ', '*', ' ', '%', '%', '%'}
+//    };
 
 //	// Source is the left-most bottom-most corner
 //	Pair src = make_pair(13, 8);
@@ -651,7 +757,7 @@ int main()
 //
 //	aStarSearch(grid, src, dest);
 
-	runAndcopyAstart(grid);
-
+//	runAndcopyAstart(grid);
+    printf("Hello");
 	return(0);
 }

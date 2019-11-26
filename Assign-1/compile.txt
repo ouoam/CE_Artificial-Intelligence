@@ -3,3 +3,6 @@ emcc module.cpp -o module0.html -O3 -s WASM=1 --shell-file html_template/shell_m
 emcc module.cpp -o module55.html -O0 -s WASM=1 --shell-file html_template/shell_minimal.html -s EXPORTED_FUNCTIONS="['_main','_findPath']" -s NO_EXIT_RUNTIME=1 -s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall']" -s ASSERTIONS=1 --std=c++11 -s ALLOW_MEMORY_GROWTH=1
 
 emcc module.cpp -o searchWASM.html -O0 -s WASM=1 -s EXPORTED_FUNCTIONS="['_main','_findPathBFS','_findPathDFS']" -s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall']" -s ASSERTIONS=1 --std=c++11 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_MEMORY=128KB -s TOTAL_STACK=80000 --memoryprofiler
+
+
+emcc Untitled1.cpp -o searchWASM.html -O0 -s WASM=1 -s EXPORTED_FUNCTIONS="['_main','_findPathAstar']" -s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall']" -s ASSERTIONS=1 --std=c++11 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_MEMORY=128KB -s TOTAL_STACK=80000 --memoryprofiler
