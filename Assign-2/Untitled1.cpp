@@ -149,10 +149,8 @@ struct doMap {
     Pair End;
     Pair Kill;
 
-    struct doMap *baseMap;
-
-    doMap(struct doMap *baseMapIn, char allies, cell oldMap[ROW][COL]) :
-        playAllies(allies), baseMap(baseMapIn)
+    doMap(char allies, cell oldMap[ROW][COL]) :
+        playAllies(allies)
     {
         for (int i = 0; i < ROW; i++) {
             for (int j = 0; j < COL; j++) {
@@ -161,8 +159,8 @@ struct doMap {
         }
     }
 
-    doMap(struct doMap *baseMapIn, char allies, char oldMap[ROW][COL]) :
-        playAllies(allies), baseMap(baseMapIn)
+    doMap(char allies, char oldMap[ROW][COL]) :
+        playAllies(allies)
     {
         for (int i = 0; i < ROW; i++) {
             for (int j = 0; j < COL; j++) {
@@ -171,8 +169,8 @@ struct doMap {
         }
     }
 
-    doMap(struct doMap *baseMapIn, char allies, cell *oldMap[ROW]) :
-        playAllies(allies), baseMap(baseMapIn)
+    doMap(char allies, cell *oldMap[ROW]) :
+        playAllies(allies)
     {
         for (int i = 0; i < ROW; i++) {
             for (int j = 0; j < COL; j++) {
@@ -324,11 +322,11 @@ void tracePath(cell cellDetails[][COL], Pair dest)
 
 int calcDirection(int fromI, int fromJ, int toI, int toJ) {
     if (fromI == toI) {
-        if (fromJ == toJ - 1) return 2;
-        else return 3;
+        if (fromJ == toJ - 1) return 3;
+        else return 2;
     } else {
-        if (fromI == toI - 1) return 0;
-        else return 1;
+        if (fromI == toI - 1) return 1;
+        else return 0;
     }
 }
 
@@ -359,7 +357,7 @@ void traceBack(doMap *Map, queue<doStore> *doQueue)
 		doStore doTemp;
 		doTemp.action = 0;
         doTemp.isSet = 1;
-        doTemp.allies = Map->playAllies;
+        doTemp.allies = typeChar2Num(Map->playAllies);
         doTemp.direction = calcDirection(row, col, p.first, p.second);
 
         doQueue->push(doTemp);
@@ -376,7 +374,7 @@ void traceBack(doMap *Map, queue<doStore> *doQueue)
 	doStore doTemp;
 	doTemp.action = 1;
     doTemp.isSet = 1;
-    doTemp.allies = Map->playAllies;
+    doTemp.allies = typeChar2Num(Map->playAllies);
     doTemp.direction = calcDirection(Map->End.first, Map->End.second, Map->Kill.first, Map->Kill.second);
     doQueue->push(doTemp);
 
@@ -633,10 +631,10 @@ doStore *Astar(char tables[ROW][COL]) {
             doMap *nowMap = nullptr;
 
             if (beforeMap == nullptr) {
-                nowMap = new doMap(beforeMap, allies, tables);
+                nowMap = new doMap(allies, tables);
                 nowMap->tables[posA[alliesI].first][posA[alliesI].second].g = 0;
             } else {
-                nowMap = new doMap(beforeMap, allies, beforeMap->tables);
+                nowMap = new doMap(allies, beforeMap->tables);
                 nowMap->tables[beforeMap->Kill.first][beforeMap->Kill.second] = ' ';
                 nowMap->tables[beforeMap->End.first][beforeMap->End.second] = beforeMap->playAllies;
 
@@ -709,6 +707,7 @@ unsigned char *runAndcopyAstart(char table[ROW][COL]) {
 
     unsigned char *out = new unsigned char[c + 1];
     memcpy(out, dstore, c);
+    delete dstore;
 	return out;
 }
 
@@ -718,7 +717,7 @@ unsigned char *findPathAstar(char inTable[]) {
     char table[ROW][COL];
     for (int i = 0; i < ROW; i++) {
         for (int j = 0; j < COL; j++) {
-            table[i][j] = inTable[i*8 + j];
+            table[i][j] = inTable[i*ROW + j];
         }
     }
 
@@ -758,6 +757,13 @@ int main()
 //	aStarSearch(grid, src, dest);
 
 //	runAndcopyAstart(grid);
-    printf("Hello");
+    printf("Hello\n");
+
+//    doStore doTemp;
+//	doTemp.action = 1;
+//    doTemp.isSet = 1;
+//    doTemp.allies = 0;
+//    doTemp.direction = calcDirection(Map->End.first, Map->End.second, Map->Kill.first, Map->Kill.second);
+//    printf(" -- %d -- %x --\n", doTemp, doTemp);
 	return(0);
 }

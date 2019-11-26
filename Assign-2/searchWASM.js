@@ -1223,8 +1223,8 @@ function updateGlobalBufferAndViews(buf) {
 var STATIC_BASE = 1024,
     STACK_BASE = 15840,
     STACKTOP = STACK_BASE,
-    STACK_MAX = 95840,
-    DYNAMIC_BASE = 95840,
+    STACK_MAX = 20848,
+    DYNAMIC_BASE = 20848,
     DYNAMICTOP_PTR = 15808;
 
 assert(STACK_BASE % 16 === 0, 'stack must start aligned');
@@ -1232,10 +1232,10 @@ assert(DYNAMIC_BASE % 16 === 0, 'heap must start aligned');
 
 
 
-var TOTAL_STACK = 80000;
+var TOTAL_STACK = 5000;
 if (Module['TOTAL_STACK']) assert(TOTAL_STACK === Module['TOTAL_STACK'], 'the stack size can no longer be determined at runtime')
 
-var INITIAL_TOTAL_MEMORY = Module['TOTAL_MEMORY'] || 131072;if (!Object.getOwnPropertyDescriptor(Module, 'TOTAL_MEMORY')) Object.defineProperty(Module, 'TOTAL_MEMORY', { get: function() { abort('Module.TOTAL_MEMORY has been replaced with plain INITIAL_TOTAL_MEMORY') } });
+var INITIAL_TOTAL_MEMORY = Module['TOTAL_MEMORY'] || 65536;if (!Object.getOwnPropertyDescriptor(Module, 'TOTAL_MEMORY')) Object.defineProperty(Module, 'TOTAL_MEMORY', { get: function() { abort('Module.TOTAL_MEMORY has been replaced with plain INITIAL_TOTAL_MEMORY') } });
 
 assert(INITIAL_TOTAL_MEMORY >= TOTAL_STACK, 'TOTAL_MEMORY should be larger than TOTAL_STACK, was ' + INITIAL_TOTAL_MEMORY + '! (TOTAL_STACK=' + TOTAL_STACK + ')');
 
@@ -1868,7 +1868,7 @@ var emscriptenMemoryProfiler = {
     html += '. STACK_MAX: ' + toHex(STACK_MAX, width) + '.';
     html += '<br />STACK memory area used now (should be zero): ' + self.formatBytes(STACKTOP - STACK_BASE) + '.' + colorBar('#FFFF00') + ' STACK watermark highest seen usage (approximate lower-bound!): ' + self.formatBytes(self.stackTopWatermark - STACK_BASE);
 
-    var DYNAMIC_BASE = 95840;
+    var DYNAMIC_BASE = 20848;
     var DYNAMICTOP = HEAP32[DYNAMICTOP_PTR>>2];
     html += "<br />DYNAMIC memory area size: " + self.formatBytes(DYNAMICTOP - DYNAMIC_BASE);
     html += ". DYNAMIC_BASE: " + toHex(DYNAMIC_BASE, width);
