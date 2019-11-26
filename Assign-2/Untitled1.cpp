@@ -46,6 +46,12 @@ struct cell
         parent_i = -1;
         parent_j = -1;
 	}
+
+	cell& operator =(const char a)
+    {
+        in = a;
+        return *this;
+    }
 };
 
 
@@ -127,14 +133,9 @@ struct doMap {
     cell tables[ROW][COL];
     char playAllies;
 
-    int iS = -1;
-    int jS = -1;
-
-    int iE = -1;
-    int jE = -1;
-
-    int iK = -1;
-    int jK = -1;
+    Pair Start;
+    Pair End;
+    Pair Kill;
 
     struct doMap *baseMap;
 
@@ -144,6 +145,16 @@ struct doMap {
         for (int i = 0; i < ROW; i++) {
             for (int j = 0; j < COL; j++) {
                 this->tables[i][j].in = oldMap[i][j].in;
+            }
+        }
+    }
+
+    doMap(struct doMap *baseMapIn, char allies, char oldMap[ROW][COL]) :
+        playAllies(allies), baseMap(baseMapIn)
+    {
+        for (int i = 0; i < ROW; i++) {
+            for (int j = 0; j < COL; j++) {
+                this->tables[i][j].in = oldMap[i][j];
             }
         }
     }
@@ -162,54 +173,62 @@ struct doMap {
         // printf("\n\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
         printf("\n");
         for (int j = 0; j < COL; j++) {
-            printf("---+");
+            printf(" %-2d|", j);
         }
-        printf("\n");
-        for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8; j++) {
-                printf(" %c |", this->tables[i][j].in);
-            }
-            printf("\n");
-            for (int j = 0; j < COL; j++) {
-                printf("---+");
-            }
-            printf("\n");
-        }
-    }
-
-    void printTableCost() {
-        printf("\n\nS(%2d,%2d) E(%2d,%2d) K(%2d,%2d) C %c\n", iS, jS, iE, jE, iK, jK, playAllies);
-        printf("\nPlay : '%c'\t\t(%d, %d)", playAllies, iS, jS);
         printf("\n");
         for (int j = 0; j < COL; j++) {
             printf("---+");
         }
+        printf("---\n");
+        for (int i = 0; i < ROW; i++) {
+            for (int j = 0; j < COL; j++) {
+                printf(" %c |", this->tables[i][j].in);
+            }
+            printf(" %-2d\n", i);
+            for (int j = 0; j < COL; j++) {
+                printf("---+");
+            }
+            printf("---\n");
+        }
+    }
+
+    void printTableCost() {
+        printf("\n\nS(%2d,%2d) E(%2d,%2d) K(%2d,%2d) C %c\n", Start.first, Start.second, End.first, End.second, Kill.first, Kill.second, playAllies);
+        printf("Play : '%c'\t\t(%d, %d)\n", playAllies, Start.first, Start.second);
         printf("\n");
+        for (int j = 0; j < COL; j++) {
+            printf(" %-2d|", j);
+        }
+        printf("\n");
+        for (int j = 0; j < COL; j++) {
+            printf("---+");
+        }
+        printf("---\n");
         for (int i = 0; i < ROW; i++) {
             for (int j = 0; j < COL; j++) {
                 if (this->tables[i][j].in != ' ' && this->tables[i][j].in != '*' && this->tables[i][j].in != '%') {
                     printf(" %c |", this->tables[i][j].in);
                 } else if (this->tables[i][j].g != FLT_MAX) {
-                    printf("%3f|", this->tables[i][j].g);
+                    printf("%3.0f|", this->tables[i][j].g);
                 } else {
                     printf("   |");
                 }
             }
-            printf("\n");
+            printf(" %-2d\n", i);
             for (int j = 0; j < COL; j++) {
                 printf("---+");
             }
-            printf("\n");
+            printf("---\n");
         }
     }
 
-    int checkAround(char allies, int i, int j) {
-        if (canWalkIn(this->tables[i][j].in)) return 0;
+    int checkAround(int i, int j) {
+        if (!canWalkIn(this->tables[i][j].in)) return 0;
 
         auto checkA = [&] (int iC, int jC)
         {
             if (isValid(iC, jC)) {
-                if (win(allies, this->tables[iC][jC].in) < 0) return -1;
+                if (win(playAllies, this->tables[iC][jC].in) < 0) return -1;
             }
             return 1;
         };
@@ -294,14 +313,14 @@ void tracePath(cell cellDetails[][COL], Pair dest)
 // A Function to find the shortest path between
 // a given source cell to a destination cell according
 // to A* Search Algorithm
-void aStarSearch(cell cellDetails[ROW][COL], Pair src, Pair dest[], int numDest)
+int aStarSearch(doMap *Map, Pair dest[], int numDest)
 {
 	// If the source is out of range
-	if (isValid (src.first, src.second) == false)
-	{
-		printf ("Source is invalid\n");
-		return;
-	}
+//	if (isValid (src.first, src.second) == false)
+//	{
+//		printf ("Source is invalid\n");
+//		return;
+//	}
 
 	// If the destination is out of range
 //	if (isValid (dest.first, dest.second) == false)
@@ -338,12 +357,12 @@ void aStarSearch(cell cellDetails[ROW][COL], Pair src, Pair dest[], int numDest)
 	int i, j;
 
 	// Initialising the parameters of the starting node
-	i = src.first, j = src.second;
-	cellDetails[i][j].f = 0.0;
-	cellDetails[i][j].g = 0.0;
-	cellDetails[i][j].h = 0.0;
-	cellDetails[i][j].parent_i = i;
-	cellDetails[i][j].parent_j = j;
+	i = Map->Start.first, j = Map->Start.second;
+	Map->tables[i][j].f = 0.0;
+	Map->tables[i][j].g = 0.0;
+	Map->tables[i][j].h = 0.0;
+	Map->tables[i][j].parent_i = i;
+	Map->tables[i][j].parent_j = j;
 
 	/*
 	Create an open list having information as-
@@ -376,10 +395,14 @@ void aStarSearch(cell cellDetails[ROW][COL], Pair src, Pair dest[], int numDest)
                 if (isDestination(iGo, jGo, dest[k]) == true)
                 {
                     // Set the Parent of the destination cell
-                    cellDetails[iGo][jGo].parent_i = i;
-                    cellDetails[iGo][jGo].parent_j = j;
-                    printf ("The destination cell is found\n");
-                    tracePath (cellDetails, dest[k]);
+                    Map->tables[iGo][jGo].parent_i = i;
+                    Map->tables[iGo][jGo].parent_j = j;
+
+                    // printf ("The destination cell is found\n");
+                    Map->Kill = dest[k];
+                    Map->End = make_pair(i, j);
+                    Map->printTable();
+                    // tracePath (Map->tables, dest[k]);
                     foundDest = true;
                     return true;
                 }
@@ -388,9 +411,9 @@ void aStarSearch(cell cellDetails[ROW][COL], Pair src, Pair dest[], int numDest)
             // list or if it is blocked, then ignore it.
             // Else do the following
             if (closedList[iGo][jGo] == false &&
-                    isUnBlocked(cellDetails, iGo, jGo) == true)
+                    Map->checkAround(iGo, jGo) == 1)
             {
-                gNew = cellDetails[i][j].g + cost(cellDetails, iGo, jGo);
+                gNew = Map->tables[i][j].g + cost(Map->tables, iGo, jGo);
                 hNew = calculateHValue (iGo, jGo, dest, numDest);
                 fNew = gNew + hNew;
 
@@ -402,17 +425,17 @@ void aStarSearch(cell cellDetails[ROW][COL], Pair src, Pair dest[], int numDest)
                 // If it is on the open list already, check
                 // to see if this path to that square is better,
                 // using 'f' cost as the measure.
-                if (cellDetails[iGo][jGo].f == FLT_MAX ||
-                        cellDetails[iGo][jGo].f > fNew)
+                if (Map->tables[iGo][jGo].f == FLT_MAX ||
+                        Map->tables[iGo][jGo].f > fNew)
                 {
                     openList.insert( make_pair(fNew, make_pair(iGo, jGo)));
 
                     // Update the details of this cell
-                    cellDetails[iGo][jGo].f = fNew;
-                    cellDetails[iGo][jGo].g = gNew;
-                    cellDetails[iGo][jGo].h = hNew;
-                    cellDetails[iGo][jGo].parent_i = i;
-                    cellDetails[iGo][jGo].parent_j = j;
+                    Map->tables[iGo][jGo].f = fNew;
+                    Map->tables[iGo][jGo].g = gNew;
+                    Map->tables[iGo][jGo].h = hNew;
+                    Map->tables[iGo][jGo].parent_i = i;
+                    Map->tables[iGo][jGo].parent_j = j;
                 }
             }
         }
@@ -455,16 +478,16 @@ void aStarSearch(cell cellDetails[ROW][COL], Pair src, Pair dest[], int numDest)
 
 
 		//----------- 1st Successor (North) ------------
-        if (successor(i - 1, j)) return;
+        if (successor(i - 1, j)) return 1;
 
 		//----------- 2nd Successor (South) ------------
-		if (successor(i + 1, j)) return;
+		if (successor(i + 1, j)) return 1;
 
 		//----------- 3rd Successor (East) ------------
-        if (successor(i, j + 1)) return;
+        if (successor(i, j + 1)) return 1;
 
 		//----------- 4th Successor (West) ------------
-        if (successor(i, j - 1)) return;
+        if (successor(i, j - 1)) return 1;
 
 //		//----------- 5th Successor (North-East) ------------
 //        if (successor(i - 1, j + 1)) return;
@@ -478,17 +501,7 @@ void aStarSearch(cell cellDetails[ROW][COL], Pair src, Pair dest[], int numDest)
 //		//----------- 8th Successor (South-West) ------------
 //        if (successor(i + 1, j - 1)) return;
 
-        for (i = 0; i < ROW; i++) {
-            for (j = 0; j < COL; j++) {
-                if (cellDetails[i][j].g == FLT_MAX) {
-                    printf("%4c ", '#');
-                } else {
-                    printf("%4.1f ", cellDetails[i][j].g);
-                }
-            }
-            printf("\n");
-        }
-        printf("\n\n");
+        // Map->printTableCost();
 	}
 
 
@@ -499,7 +512,7 @@ void aStarSearch(cell cellDetails[ROW][COL], Pair src, Pair dest[], int numDest)
 	if (foundDest == false)
 		printf("Failed to find the Destination Cell\n");
 
-	return;
+	return 0;
 }
 
 doStore *Astar(char tables[ROW][COL]) {
@@ -524,6 +537,7 @@ doStore *Astar(char tables[ROW][COL]) {
     for (int i = 0; i < ROW; i++) {
         for (int j = 0; j < COL; j++) {
             int type = typeChar2Num(tables[i][j]);
+            if (isupper(tables[i][j])) continue;
             if (type == 3) continue;
             numEnemies[type]++;
         }
@@ -532,37 +546,59 @@ doStore *Astar(char tables[ROW][COL]) {
     int alliesI = 0;
     int lastFinishAllies = -1;
 
-    while (numEnemies[0] > 0 || numEnemies[1] > 0 || numEnemies[2] > 0) {
-        if (numEnemies[alliesI] > 0) {
+    doMap *beforeMap = nullptr;
 
-            char allies = typeNum2Char(alliesI);
-            allies = toupper(allies);
+    while (numEnemies[0] > 0 || numEnemies[1] > 0 || numEnemies[2] > 0) {
+        char allies = typeNum2Char(alliesI);
+        allies = toupper(allies);
+        char muchWin = win(allies, 'l') == 1 ? 'l' : (win(allies, 's') == 1 ? 's' : win(allies, 'a') == 1 ? 'a' : ' ');
+        int muchWinType = typeChar2Num(muchWin);
+
+        if (numEnemies[muchWinType] > 0) {
+            doMap *nextMap = nullptr;
+
+            if (beforeMap == nullptr) {
+                nextMap = new doMap(beforeMap, allies, tables);
+            } else {
+                nextMap = new doMap(beforeMap, allies, beforeMap->tables);
+                nextMap->tables[beforeMap->Kill.first][beforeMap->Kill.second] = ' ';
+                nextMap->tables[beforeMap->End.first][beforeMap->End.second] = beforeMap->playAllies;
+
+                char mapAtFirst = tables[beforeMap->Start.first][beforeMap->Start.second];
+                if (mapAtFirst == ' ' || mapAtFirst == '#' || mapAtFirst == '*' || mapAtFirst == '%') {
+                    nextMap->tables[beforeMap->Start.first][beforeMap->Start.second] = mapAtFirst;
+                } else {
+                    nextMap->tables[beforeMap->Start.first][beforeMap->Start.second] = ' ';
+                }
+
+            }
+            nextMap->Start = posA[alliesI];
+            nextMap->playAllies = allies;
 
             Pair posE[3];
             int posEi = 0;
 
-            char muchWin = win(allies, 'l') ? 'l' : (win(allies, 's') ? 's' :win(allies, 'a') ? 'a' : ' ');
-
-            cell tablesCell[ROW][COL];
-
             for (int i = 0; i < ROW; i++) {
                 for (int j = 0; j < COL; j++) {
-                    if (tables[i][j] == muchWin) {
+                    if (nextMap->tables[i][j].in == muchWin) {
                         posE[posEi] = make_pair(i, j);
                         posEi++;
                     }
                 }
             }
 
-            for (int i = 0; i < ROW; i++) {
-                for (int j = 0; j < COL; j++) {
-
-                    tablesCell[i][j].in = tables[i][j];
+            if (aStarSearch(nextMap, posE, posEi)) {
+                posA[alliesI] = nextMap->End;
+                numEnemies[muchWinType]--;
+                beforeMap = nextMap;
+                lastFinishAllies = alliesI;
+            } else {
+                delete nextMap;
+                if (lastFinishAllies == alliesI) {
+                    printf("!!Can not find!!\n");
+                    break;
                 }
             }
-
-            aStarSearch(tablesCell, posA[alliesI], posE, posEi);
-            return nullptr;
         }
 
         alliesI++;
