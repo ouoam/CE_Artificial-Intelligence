@@ -8,6 +8,11 @@
 #include<cctype>
 #include<cmath>
 #include<cstring>
+#include <benchmark/benchmark.h>
+
+int insertCount;
+int maxSize;
+
 using namespace std;
 
 #define ROW 15
@@ -384,7 +389,7 @@ void traceBack(doMap *Map, queue<doStore> *doQueue)
 // A Function to find the shortest path between
 // a given source cell to a destination cell according
 // to A* Search Algorithm
-int aStarSearch(doMap *Map, Pair dest[], int numDest, int type = 0)
+int aStarSearch(doMap *Map, Pair dest[], int numDest, int typeSearch = 0)
 {
 	// If the source is out of range
 //	if (isValid (src.first, src.second) == false)
@@ -447,6 +452,7 @@ int aStarSearch(doMap *Map, Pair dest[], int numDest, int type = 0)
 	// Put the starting cell on the open list and set its
 	// 'f' as 0
 	openList.insert(make_pair (0.0, make_pair (i, j)));
+	insertCount++;
 
 	// We set this boolean value as false as initially
 	// the destination is not reached.
@@ -486,14 +492,14 @@ int aStarSearch(doMap *Map, Pair dest[], int numDest, int type = 0)
             {
                 gNew = Map->tables[i][j].g + cost(Map->tables, iGo, jGo);
                 hNew = calculateHValue (iGo, jGo, dest, numDest);
-                if (type == 0) {
+                if (typeSearch == 0) {
                     fNew = gNew + hNew;
                 } else {
                     fNew = hNew;
                 }
 
 
-                // If it isn’t on the open list, add it to
+                // If it isnâ€™t on the open list, add it to
                 // the open list. Make the current square
                 // the parent of this square. Record the
                 // f, g, and h costs of the square cell
@@ -505,6 +511,7 @@ int aStarSearch(doMap *Map, Pair dest[], int numDest, int type = 0)
                         Map->tables[iGo][jGo].f > fNew)
                 {
                     openList.insert( make_pair(fNew, make_pair(iGo, jGo)));
+					insertCount++;
 
                     // Update the details of this cell
                     Map->tables[iGo][jGo].f = fNew;
@@ -521,7 +528,7 @@ int aStarSearch(doMap *Map, Pair dest[], int numDest, int type = 0)
 	while (!openList.empty())
 	{
 		pPair p = *openList.begin();
-
+		maxSize = max(maxSize, (int)openList.size());
 		// Remove this vertex from the open list
 		openList.erase(openList.begin());
 
@@ -585,13 +592,13 @@ int aStarSearch(doMap *Map, Pair dest[], int numDest, int type = 0)
 	// list is empty, then we conclude that we failed to
 	// reach the destiantion cell. This may happen when the
 	// there is no way to destination cell (due to blockages)
-	if (foundDest == false)
-		printf("Failed to find the Destination Cell\n");
+	//if (foundDest == false)
+	//	printf("Failed to find the Destination Cell\n");
 
 	return 0;
 }
 
-doStore *Astar(char tables[ROW][COL], int type = 0) {
+doStore *Astar(char tables[ROW][COL], int typeSearch = 0) {
     int numEnemies[3] = {0, 0, 0};
     Pair posA[3];
 
@@ -666,7 +673,7 @@ doStore *Astar(char tables[ROW][COL], int type = 0) {
                 }
             }
 
-            if (aStarSearch(nowMap, posE, posEi, type)) {
+            if (aStarSearch(nowMap, posE, posEi, typeSearch)) {
                 posA[alliesI] = nowMap->End;
                 numEnemies[muchWinType]--;
 
@@ -704,8 +711,8 @@ doStore *Astar(char tables[ROW][COL], int type = 0) {
     return dstore;
 }
 
-unsigned char *runAndcopyAstart(char table[ROW][COL], int type = 0) {
-	doStore *dstore =  Astar(table, type);
+unsigned char *runAndcopyAstart(char table[ROW][COL], int typeSearch = 0) {
+	doStore *dstore =  Astar(table, typeSearch);
 
     int c = 0;
     while (dstore[c++].isSet != 0);
@@ -718,7 +725,7 @@ unsigned char *runAndcopyAstart(char table[ROW][COL], int type = 0) {
 
 extern "C" {
 
-unsigned char *findPathAstar(char inTable[]) {
+unsigned char *findPathAstar(char inTable[], int typeSearch = 0) {
     char table[ROW][COL];
     for (int i = 0; i < ROW; i++) {
         for (int j = 0; j < COL; j++) {
@@ -726,49 +733,152 @@ unsigned char *findPathAstar(char inTable[]) {
         }
     }
 
-    return runAndcopyAstart(table);
+    return runAndcopyAstart(table, typeSearch);
 }
 }
 
+void generate(char tableData[15][15]) {
+	memset(tableData, ' ', 15*15);
+	int count = 0;
+	while (count != 3) {
+		int randRow = rand() % 10;
+		int randCol = rand() % 15;
+		if (tableData[randRow][randCol] != ' ') {
+			continue;
+		} else {
+			tableData[randRow][randCol] = 'l';
+			count++;
+		}
+	}
 
-// Driver program to test above function
-int main()
-{
-	char grid[ROW][COL] =
-	{
-        {' ', '*', '*', '*', ' ', ' ', ' ', '*', '*', ' ', '%', ' ', '%', '%', ' '},
-        {' ', ' ', '%', '%', 'a', ' ', '%', ' ', ' ', ' ', ' ', '%', '%', '%', ' '},
-        {' ', ' ', ' ', '*', '*', '%', ' ', ' ', ' ', ' ', '%', ' ', 's', ' ', '*'},
-        {' ', ' ', ' ', '%', ' ', ' ', '%', '*', '%', ' ', ' ', '*', '*', '%', 'l'},
-        {' ', '%', ' ', '%', '%', ' ', ' ', ' ', ' ', ' ', '%', '%', ' ', '*', ' '},
-        {'%', ' ', '*', '%', '*', ' ', 'l', '*', '%', '*', ' ', ' ', '*', ' ', ' '},
-        {' ', '*', ' ', '*', '%', ' ', ' ', '%', '*', ' ', '%', ' ', ' ', ' ', ' '},
-        {'l', '%', '*', '%', '*', '%', '*', '%', '*', ' ', ' ', '*', '*', '*', ' '},
-        {'*', ' ', '*', 'a', 's', ' ', '*', '%', '%', ' ', 's', '*', ' ', '%', '%'},
-        {'*', ' ', '*', '*', ' ', '*', '*', ' ', ' ', ' ', ' ', ' ', 'a', ' ', ' '},
-        {'#', '#', '%', '#', '#', '#', ' ', ' ', '#', '*', '#', '*', '#', '%', ' '},
-        {'%', ' ', ' ', '*', ' ', '*', ' ', '*', '*', ' ', '%', ' ', ' ', 'S', ' '},
-        {'%', ' ', '*', ' ', '*', ' ', ' ', ' ', ' ', '%', ' ', '%', ' ', '*', ' '},
-        {' ', ' ', '%', ' ', ' ', '*', '%', ' ', '%', ' ', '%', ' ', ' ', '*', ' '},
-        {' ', ' ', ' ', '%', 'A', '%', 'L', '*', '*', ' ', '*', ' ', '%', '%', '%'}
-    };
+	count = 0;
+	while (count != 3) {
+		int randRow = rand() % 10;
+		int randCol = rand() % 15;
+		if (tableData[randRow][randCol] != ' ') {
+			continue;
+		} else {
+			tableData[randRow][randCol] = 's';
+			count++;
+		}
+	}
 
-//	// Source is the left-most bottom-most corner
-//	Pair src = make_pair(13, 8);
-//
-//	// Destination is the left-most top-most corner
-//	Pair dest = make_pair(2, 1);
-//
-//	aStarSearch(grid, src, dest);
+	count = 0;
+	while (count != 3) {
+		int randRow = rand() % 10;
+		int randCol = rand() % 15;
+		if (tableData[randRow][randCol] != ' ') {
+			continue;
+		} else {
+			tableData[randRow][randCol] = 'a';
+			count++;
+		}
+	}
 
-	runAndcopyAstart(grid, 0);
-    printf("Hello\n");
+	//random allies position
+	count = 0;
+	while (count != 3) {
+		int randRow = rand() % 4 + 11;
+		int randCol = rand() % 15;
+		if (tableData[randRow][randCol] != ' ') {
+			continue;
+		} else {
+			switch (count) {
+			case 0:
+				tableData[randRow][randCol] = 'L';
+				break;
+			case 1:
+				tableData[randRow][randCol] = 'S';
+				break;
+			case 2:
+				tableData[randRow][randCol] = 'A';
+				break;
+			}
+		count++;
+		}
+	}
 
-//    doStore doTemp;
-//	doTemp.action = 1;
-//    doTemp.isSet = 1;
-//    doTemp.allies = 0;
-//    doTemp.direction = calcDirection(Map->End.first, Map->End.second, Map->Kill.first, Map->Kill.second);
-//    printf(" -- %d -- %x --\n", doTemp, doTemp);
-	return(0);
+	//random terrains
+	count = 0;
+	while (count != 8) {
+		int randRow = 10;
+		int randCol = rand() % 15;
+		if (tableData[randRow][randCol] != ' ') {
+			continue;
+		} else {
+			tableData[randRow][randCol] = '#';
+			count++;
+		}
+	}
+
+	// sand tile
+	count = 0;
+	while (count != 50) {
+		int randRow = rand() % 15;
+		int randCol = rand() % 15;
+		if (tableData[randRow][randCol] != ' ') {
+			continue;
+		} else {
+			tableData[randRow][randCol] = '*';
+			count++;
+		}
+	}
+
+	// water tile
+	count = 0;
+	while (count != 50) {
+		int randRow = rand() % 15;
+		int randCol = rand() % 15;
+		if (tableData[randRow][randCol] != ' ') {
+			continue;
+		} else {
+			tableData[randRow][randCol] = '%';
+			count++;
+		}
+	}
 }
+
+
+static void Find_Astar(benchmark::State& state) {
+	srand(time(0));
+	for (auto _ : state) {
+		state.PauseTiming();
+		char tableData[15][15];
+
+		generate(tableData);
+
+		insertCount = 0;
+		maxSize = 0;
+		state.ResumeTiming();
+		runAndcopyAstart(tableData, 0);
+		state.counters["insertCount"] = insertCount;
+		state.counters["maxSize"] = maxSize;
+	}
+}
+
+static void CustomArguments(benchmark::internal::Benchmark* b) {
+    b->Args({15, 15});
+}
+
+BENCHMARK(Find_Astar)->Apply(CustomArguments);
+
+static void Find_Greedy(benchmark::State& state) {
+	srand(time(0));
+	for (auto _ : state) {
+		state.PauseTiming();
+		char tableData[15][15];
+
+		generate(tableData);
+
+		insertCount = 0;
+		maxSize = 0;
+		state.ResumeTiming();
+		runAndcopyAstart(tableData, 1);
+		state.counters["insertCount"] = insertCount;
+		state.counters["maxSize"] = maxSize;
+	}
+}
+
+BENCHMARK(Find_Greedy)->Apply(CustomArguments);
+
+BENCHMARK_MAIN();
